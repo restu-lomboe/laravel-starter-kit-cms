@@ -50,7 +50,10 @@
                     @include('layouts.header')
 
                     <!-- CONTENT SLOT -->
-                    {{ $slot }}
+                    <div
+                        class="h-[calc(100vh-65px)] overflow-y-auto overflow-hidden overflow-y-auto [&::-webkit-scrollbar]:w-3 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-amber/80 dark:[&::-webkit-scrollbar-track]:bg-neutral-700 dark:[&::-webkit-scrollbar-thumb]:bg-amber/80 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-white dark:[&::-webkit-scrollbar-thumb]:border-neutral-700">
+                        {{ $slot }}
+                    </div>
                 </div>
             </div>
         </div>

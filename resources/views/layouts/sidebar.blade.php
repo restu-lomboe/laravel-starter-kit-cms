@@ -9,7 +9,7 @@
     </div>
 
     <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-0.5 text-sm">
-        <a href="#" class="nav-item flex items-center gap-3 rounded-md px-3 py-2 bg-surface-2 text-ink font-medium">
+        <a href="{{ route('admin.dashboard') }}" class="nav-item flex items-center gap-3 rounded-md px-3 py-2 bg-surface-2 text-ink font-medium">
             <svg class="shrink-0 size-4" fill="currentColor" xmlns="http://www.w3.org/2000/svg" width="1em"
                 height="1em" viewBox="0 0 24 24">
                 <path d="M0 0h24v24H0z" fill="none" />
@@ -18,7 +18,7 @@
                     d="M2 5a2 2 0 0 1 2-2h6v18H4a2 2 0 0 1-2-2zm12-2h6a2 2 0 0 1 2 2v5h-8zm0 11h8v5a2 2 0 0 1-2 2h-6z" />
             </svg>
 
-            <span class="sidebar-label whitespace-nowrap">Overview</span>
+            <span class="sidebar-label whitespace-nowrap">Dashboard</span>
         </a>
         <div class="flex flex-col">
             <p class="sidebar-group-label pt-4 pb-1 px-3 text-[10px] uppercase tracking-wide text-mist/60">Pages</p>
