@@ -1,0 +1,8 @@
+{
+    "agents": [
+        "opencode"
+    ],
+    "mcp": true,
+    "nightwatch": false,
+    "sail": false
+}

@@ -1,0 +1,84 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/forms";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+
+@theme {
+    --font-display: "Fraunces", serif;
+    --font-sans: "Fraunces", sans-serif;
+    --font-mono: "IBM Plex Mono", monospace;
+
+    --color-bg: #faf9f4;
+    --color-surface: #f1eee7;
+    --color-surface-2: #e8e4da;
+    --color-line: #e2ded3;
+    --color-ink: #1b1a18;
+    --color-mist: #706e68;
+    --color-amber: #e3a93e;
+    --color-amber-deep: #a15d0e;
+    --color-on-amber: #17140d;
+    --color-card: #ffffff;
+}
+
+:root {
+    --grad-a: #f6d9a0;
+    --grad-b: #eab568;
+    --grad-c1: #fdf3e2;
+    --grad-c2: #f7e2bb;
+    --grad-c3: #f0d29c;
+    --sparkline: #a15d0e;
+    --noise-opacity: 0.08;
+    --noise-blend: multiply;
+    --card-shadow: rgba(27, 26, 24, 0.1);
+}
+
+:is(html.dark) {
+    --color-bg: #0b0b0d;
+    --color-surface: #17171b;
+    --color-surface-2: #1e1e23;
+    --color-line: #29292f;
+    --color-ink: #f4f4f2;
+    --color-mist: #8d8d94;
+    --color-amber: #f2b84b;
+    --color-amber-deep: #f2b84b;
+    --color-card: #0b0b0d;
+
+    --grad-a: #f2b84b;
+    --grad-b: #b8722e;
+    --grad-c1: #3a2414;
+    --grad-c2: #1c130c;
+    --grad-c3: #0b0b0d;
+    --sparkline: #f2b84b;
+    --noise-opacity: 0.15;
+    --noise-blend: overlay;
+    --card-shadow: rgba(0, 0, 0, 0.45);
+}
+
+body {
+    background-color: var(--color-bg);
+}
+body,
+body * {
+    transition:
+        background-color 0.2s ease,
+        border-color 0.2s ease,
+        color 0.2s ease;
+}
+
+/* sidebar collapse */
+#sidebar.collapsed {
+    width: 4.5rem;
+}
+#sidebar.collapsed .sidebar-label,
+#sidebar.collapsed .sidebar-wordmark,
+#sidebar.collapsed .sidebar-group-label {
+    display: none;
+}
+#sidebar.collapsed .nav-item {
+    justify-content: center;
+}
+#sidebar.collapsed #sidebar-collapse-icon {
+    transform: rotate(180deg);
+}
