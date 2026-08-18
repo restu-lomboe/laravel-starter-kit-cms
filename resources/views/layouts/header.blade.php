@@ -60,7 +60,7 @@
             </button>
 
             <div wire:transition id="profile-menu"
-                class="hidden absolute right-0 mt-2 w-64 rounded-xl border border-line bg-neutral-900 pt-4 z-50"
+                class="hidden absolute right-0 mt-2 w-64 rounded-xl border border-line bg-surface pt-4 z-50"
                 style="box-shadow: 0 12px 32px -12px var(--card-shadow, rgba(0,0,0,.25));">
 
                 <div class="px-4 pb-3">

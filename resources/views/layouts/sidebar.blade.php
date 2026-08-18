@@ -41,7 +41,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 9-7 7-7-7" />
                         </svg>
                     </summary>
-                    <div class="relative ml-2 border-l border-gray-200 dark:border-neutral-700 pl-2 space-y-1 pb-4">
+                    <div class="relative ml-2 mb-5 border-l border-gray-200 dark:border-neutral-700 pl-2 space-y-1">
                         <a class="block rounded-lg px-3 py-2 text-gray-700 hover:bg-gray-100 hover:text-gray-900 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-white transition-colors text-sm"
                             href="#">
                             Submenu item

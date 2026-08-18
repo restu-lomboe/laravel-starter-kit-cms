@@ -230,7 +230,7 @@ new class extends Component {
                         <rect x="3" y="4" width="18" height="18" rx="2" />
                         <path d="M3 10h18M8 2v4M16 2v4" />
                     </svg>
-                    Aug 07 – Aug 13, 2026
+                    {{ date('j F, Y') }}
                 </div>
             </div>
         </div>

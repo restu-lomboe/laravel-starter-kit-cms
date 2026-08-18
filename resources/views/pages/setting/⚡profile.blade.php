@@ -3,7 +3,7 @@
 use Livewire\Component;
 
 new class extends Component {
-    public $tab = 'profile';
+    public $tab = 'authentication';
 
     public function getTab($tab)
     {
