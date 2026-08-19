@@ -33,6 +33,45 @@ new class extends Component {
 
         $this->redirectRoute('admin.roles.index');
     }
+
+    public function render()
+    {
+        return $this->view([
+            'model' => Role::class,
+            'scope' => 'forAuthUserCompany',
+            'columns' => [
+                'no' => '#',
+                'name' => 'Name',
+                'guard_name' => 'Guard',
+                'total_permissions' => 'Total Permissions',
+                'created_at' => 'Created At',
+                'actions' => 'Actions',
+            ],
+            'formatters' => [
+                'created_at' => 'date',
+                'name' => [
+                    'type' => 'link',
+                    'options' => [
+                        'route' => 'admin.role.show',       // named route
+                        'params' => ['id'],   // route param => column name
+                        'target' => '_blank',   // optional
+                        'class' => 'text-blue-600 dark:text-blue-400 hover:underline',
+                    ],
+                ],
+            ],
+            'formatterOptions' => [
+                'created_at' => [
+                    'format' => 'd M Y h:i A',  // Any PHP date format string
+                ],
+            ],
+            'customColumns' => [
+                'total_permissions' => 'components.admin.roles.total',
+                'actions' => 'components.admin.roles.action',
+            ],
+            'unsortable' => ['actions', 'total_permissions'],
+            'searchable' => ['name', 'description'],
+        ]);
+    }
 };
 ?>
 
@@ -62,7 +101,22 @@ new class extends Component {
             </div>
         @endif
 
-        <div class="rounded-xl border border-line bg-card overflow-hidden"
+        <livewire:livewire-datatable
+            :model="$model"
+            :columns="$columns"
+            :searchable="$searchable"
+            :customColumns="$customColumns"
+            :unsortable="$unsortable"
+            :formatters="$formatters"
+            :formatterOptions="$formatterOptions"
+            :theme="[
+                'search_wrapper' => 'pb-4 px-3 pt-3 flex flex-col sm:flex-row items-center justify-between gap-4 dark:bg-surface bg-white',
+                'table_wrapper' => 'overflow-x-auto border border-gray-200 dark:border-gray-700 shadow dark:bg-surface bg-white',
+                'filter_panel' => 'transition duration-300 ease-in-out p-4 border-r border-gray-200 dark:border-gray-700 dark:bg-surface bg-white',
+                'pagination_wrapper' => 'p-4 bg-white dark:bg-surface'
+            ]"/>
+
+        {{-- <div class="rounded-xl border border-line bg-card overflow-hidden"
             style="box-shadow: 0 8px 24px -12px var(--card-shadow);">
 
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 border-b border-line">
@@ -154,6 +208,6 @@ new class extends Component {
                     {{ $this->roles->links() }}
                 </div>
             @endif
-        </div>
+        </div> --}}
     </main>
 </div>

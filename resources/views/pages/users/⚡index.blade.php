@@ -1,26 +1,9 @@
 <?php
 
 use App\Models\User;
-use Livewire\Attributes\Computed;
-use Livewire\Attributes\Url;
 use Livewire\Component;
-use Livewire\WithPagination;
 
 new class extends Component {
-    use WithPagination;
-
-    #[Url]
-    public string $search = '';
-
-    #[Computed]
-    public function users()
-    {
-        return User::query()
-            ->when($this->search !== '', fn ($query) => $query->where('name', 'like', '%'.$this->search.'%')->orWhere('email', 'like', '%'.$this->search.'%'))
-            ->with('roles')
-            ->orderBy('name')
-            ->paginate(10);
-    }
 
     public function delete(int $id): void
     {
@@ -46,6 +29,44 @@ new class extends Component {
             \DB::rollBack();
             session()->flash('error', 'Failed to delete user. '.$th->getMessage());
         }
+    }
+
+    public function render()
+    {
+        return $this->view([
+            'model' => User::class,
+            'columns' => [
+                'no' => '#',
+                'name' => 'Name',
+                'roles' => 'Roles',
+                'email' => 'Email',
+                'created_at' => 'Created At',
+                'actions' => 'Actions',
+            ],
+            'formatters' => [
+                'created_at' => 'date',
+                'name' => [
+                    'type' => 'link',
+                    'options' => [
+                        'route' => 'users.detail',       // named route
+                        'params' => ['id'],   // route param => column name
+                        'target' => '_blank',   // optional
+                        'class' => 'text-blue-600 dark:text-blue-400 hover:underline',
+                    ],
+                ],
+            ],
+            'formatterOptions' => [
+                'created_at' => [
+                    'format' => 'd M Y h:i A',  // Any PHP date format string
+                ],
+            ],
+            'customColumns' => [
+                'roles' => 'components.admin.users.roles',
+                'actions' => 'components.admin.users.action',
+            ],
+            'unsortable' => ['actions', 'roles'],
+            'searchable' => ['name', 'email'],
+        ])->layout('layouts.app');
     }
 };
 ?>
@@ -85,104 +106,20 @@ new class extends Component {
             </div>
         @endif
 
-        <div class="rounded-xl border border-line bg-card overflow-hidden"
-            style="box-shadow: 0 8px 24px -12px var(--card-shadow);">
-
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 border-b border-line">
-                <p class="text-sm font-medium text-ink">{{ $this->users->total() }} total</p>
-                <div class="relative w-full sm:w-64">
-                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-mist text-xs"></i>
-                    <input type="text" wire:model.live.debounce.300ms="search" placeholder="Search name or email…"
-                        class="field-input pl-9" />
-                </div>
-            </div>
-
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead>
-                        <tr class="text-left text-xs text-mist border-b border-line">
-                            <th class="font-normal px-5 py-2.5">Name</th>
-                            <th class="font-normal px-5 py-2.5">Email</th>
-                            <th class="font-normal px-5 py-2.5">Roles</th>
-                            <th class="font-normal px-5 py-2.5">Created</th>
-                            <th class="font-normal px-5 py-2.5 text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-line">
-                        @forelse ($this->users as $user)
-                            <tr class="hover:bg-surface transition">
-                                <td class="px-5 py-3">
-                                    <div class="flex items-center gap-3">
-                                        <span
-                                            class="flex size-8 items-center justify-center rounded-full bg-surface-2 text-xs font-medium text-ink shrink-0">
-                                            {{ str($user->name)->substr(0, 2)->upper() }}
-                                        </span>
-                                        <span class="font-medium text-ink">{{ $user->name }}</span>
-                                    </div>
-                                </td>
-                                <td class="px-5 py-3 text-mist font-mono text-xs">{{ $user->email }}</td>
-                                <td class="px-5 py-3">
-                                    <div class="flex flex-wrap gap-1">
-                                        @forelse ($user->roles as $role)
-                                            <span class="rounded-full bg-surface-2 px-2.5 py-1 text-xs text-mist">
-                                                {{ $role->name }}
-                                            </span>
-                                        @empty
-                                            <span class="text-xs text-mist">—</span>
-                                        @endforelse
-                                    </div>
-                                </td>
-                                <td class="px-5 py-3 text-mist font-mono text-xs">{{ $user->created_at->format('d M Y') }}</td>
-                                <td class="px-5 py-3">
-                                    <div class="flex items-center justify-end gap-1">
-                                        @can('users.detail')
-                                            <a href="{{ route('admin.user.detail', $user->id) }}" wire:navigate
-                                                title="Detail"
-                                                class="inline-flex size-8 items-center justify-center rounded-lg text-mist hover:text-ink hover:bg-surface-2 transition">
-                                                <i class="fa-solid fa-eye text-xs"></i>
-                                            </a>
-                                        @endcan
-                                        @can('users.update')
-                                            <a href="{{ route('admin.user.update', $user->id) }}" wire:navigate
-                                                title="Edit"
-                                                class="inline-flex size-8 items-center justify-center rounded-lg text-mist hover:text-ink hover:bg-surface-2 transition">
-                                                <i class="fa-solid fa-pen text-xs"></i>
-                                            </a>
-                                        @endcan
-                                        @can('users.delete')
-                                            <button type="button" wire:click="delete({{ $user->id }})"
-                                                wire:confirm="Delete user \"{{ $user->name }}\"? This cannot be undone."
-                                                title="Delete"
-                                                class="inline-flex size-8 items-center justify-center rounded-lg text-mist hover:text-red-600 hover:bg-surface-2 transition">
-                                                <i class="fa-solid fa-trash-can text-xs"></i>
-                                            </button>
-                                        @endcan
-                                    </div>
-                                </td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="5" class="px-5 py-10 text-center">
-                                    <p class="text-sm text-mist">No users found</p>
-                                    @can('users.create')
-                                        <a href="{{ route('admin.user.create') }}" wire:navigate
-                                            class="mt-2 inline-flex items-center gap-2 text-xs text-amber-deep hover:text-ink transition">
-                                            <i class="fa-solid fa-plus text-[10px]"></i>
-                                            Create the first user
-                                        </a>
-                                    @endcan
-                                </td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
-
-            @if ($this->users->hasPages())
-                <div class="px-5 py-4 border-t border-line">
-                    {{ $this->users->links() }}
-                </div>
-            @endif
-        </div>
+        <livewire:livewire-datatable
+            :model="$model"
+            :columns="$columns"
+            :searchable="$searchable"
+            :customColumns="$customColumns"
+            :unsortable="$unsortable"
+            :formatters="$formatters"
+            :formatterOptions="$formatterOptions"
+            :theme="[
+                'search_wrapper' => 'pb-4 px-3 pt-3 flex flex-col sm:flex-row items-center justify-between gap-4 dark:bg-surface bg-white',
+                'table_wrapper' => 'overflow-x-auto border border-gray-200 dark:border-gray-700 shadow dark:bg-surface bg-white',
+                'filter_panel' => 'transition duration-300 ease-in-out p-4 border-r border-gray-200 dark:border-gray-700 dark:bg-surface bg-white',
+                'pagination_wrapper' => 'p-4 bg-white dark:bg-surface',
+                'td_name' => 'w-50 !whitespace-normal flex flex-row items-center gap-2 flex-shrink break-words',
+            ]"/>
     </main>
 </div>

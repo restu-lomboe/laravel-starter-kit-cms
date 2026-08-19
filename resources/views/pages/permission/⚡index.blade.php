@@ -31,6 +31,36 @@ new class extends Component {
 
         $this->redirectRoute('admin.permission.index');
     }
+
+    public function render()
+    {
+        return $this->view([
+            'model' => Permission::class,
+            'columns' => [
+                'no' => '#',
+                'name' => 'Name',
+                'description' => 'Description',
+                'page' => 'Page',
+                'feature' => 'Feature',
+                'level' => 'Level',
+                'created_at' => 'Created At',
+                'actions' => 'Actions',
+            ],
+            'formatters' => [
+                'created_at' => 'date',
+            ],
+            'formatterOptions' => [
+                'created_at' => [
+                    'format' => 'd M Y h:i A',  // Any PHP date format string
+                ],
+            ],
+            'customColumns' => [
+                'actions' => 'components.admin.permissions.action',
+            ],
+            'unsortable' => ['actions'],
+            'searchable' => ['name', 'description'],
+        ]);
+    }
 };
 ?>
 
@@ -60,88 +90,20 @@ new class extends Component {
             </div>
         @endif
 
-        <div class="rounded-xl border border-line bg-card overflow-hidden"
-            style="box-shadow: 0 8px 24px -12px var(--card-shadow);">
-
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 border-b border-line">
-                <p class="text-sm font-medium text-ink">{{ $this->permissions->total() }} total</p>
-                <div class="relative w-full sm:w-64">
-                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-mist text-xs"></i>
-                    <input type="text" wire:model.live.debounce.300ms="search" placeholder="Search permissions…"
-                        class="field-input pl-9" />
-                </div>
-            </div>
-
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead>
-                        <tr class="text-left text-xs text-mist border-b border-line">
-                            <th class="font-normal px-5 py-2.5">Name</th>
-                            <th class="font-normal px-5 py-2.5">Guard</th>
-                            <th class="font-normal px-5 py-2.5">Created</th>
-                            <th class="font-normal px-5 py-2.5 text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-line">
-                        @forelse ($this->permissions as $permission)
-                            <tr class="hover:bg-surface transition">
-                                <td class="px-5 py-3 font-medium text-ink">{{ $permission->name }}</td>
-                                <td class="px-5 py-3">
-                                    <span class="rounded-full bg-surface-2 px-2.5 py-1 text-xs font-mono text-mist">
-                                        {{ $permission->guard_name }}
-                                    </span>
-                                </td>
-                                <td class="px-5 py-3 text-mist font-mono text-xs">{{ $permission->created_at->format('d M Y') }}</td>
-                                <td class="px-5 py-3">
-                                    <div class="flex items-center justify-end gap-1">
-                                        @can('permission.detail')
-                                            <a href="{{ route('admin.permission.detail', $permission->id) }}" wire:navigate
-                                                title="Detail"
-                                                class="inline-flex size-8 items-center justify-center rounded-lg text-mist hover:text-ink hover:bg-surface-2 transition">
-                                                <i class="fa-solid fa-eye text-xs"></i>
-                                            </a>
-                                        @endcan
-                                        @can('permission.update')
-                                            <a href="{{ route('admin.permission.update', $permission->id) }}" wire:navigate
-                                                title="Edit"
-                                                class="inline-flex size-8 items-center justify-center rounded-lg text-mist hover:text-ink hover:bg-surface-2 transition">
-                                                <i class="fa-solid fa-pen text-xs"></i>
-                                            </a>
-                                        @endcan
-                                        @can('permission.delete')
-                                            <button type="button" wire:click="delete({{ $permission->id }})"
-                                                wire:confirm="Delete permission \"{{ $permission->name }}\"? This cannot be undone."
-                                                title="Delete"
-                                                class="inline-flex size-8 items-center justify-center rounded-lg text-mist hover:text-red-600 hover:bg-surface-2 transition">
-                                                <i class="fa-solid fa-trash-can text-xs"></i>
-                                            </button>
-                                        @endcan
-                                    </div>
-                                </td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="4" class="px-5 py-10 text-center">
-                                    <p class="text-sm text-mist">No permissions found</p>
-                                    @can('permission.create')
-                                        <a href="{{ route('admin.permission.create') }}" wire:navigate
-                                            class="mt-2 inline-flex items-center gap-2 text-xs text-amber-deep hover:text-ink transition">
-                                            <i class="fa-solid fa-plus text-[10px]"></i>
-                                            Create the first permission
-                                        </a>
-                                    @endcan
-                                </td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
-
-            @if ($this->permissions->hasPages())
-                <div class="px-5 py-4 border-t border-line">
-                    {{ $this->permissions->links() }}
-                </div>
-            @endif
-        </div>
+        <livewire:livewire-datatable
+            :model="$model"
+            :columns="$columns"
+            :searchable="$searchable"
+            :customColumns="$customColumns"
+            :unsortable="$unsortable"
+            :formatters="$formatters"
+            :formatterOptions="$formatterOptions"
+            :theme="[
+                'search_wrapper' => 'pb-4 px-3 pt-3 flex flex-col sm:flex-row items-center justify-between gap-4 dark:bg-surface bg-white',
+                'table_wrapper' => 'overflow-x-auto border border-gray-200 dark:border-gray-700 shadow dark:bg-surface bg-white',
+                'filter_panel' => 'transition duration-300 ease-in-out p-4 border-r border-gray-200 dark:border-gray-700 dark:bg-surface bg-white',
+                'pagination_wrapper' => 'p-4 bg-white dark:bg-surface',
+                'td_description' => 'w-50 !whitespace-normal flex flex-row items-center gap-2 flex-shrink break-words',
+            ]"/>
     </main>
 </div>

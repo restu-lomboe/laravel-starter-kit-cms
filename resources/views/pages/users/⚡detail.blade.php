@@ -30,7 +30,7 @@ new class extends Component {
 
 <div>
     <main class="flex-1 overflow-y-auto px-4 sm:px-6 py-6 space-y-6">
-        <div class="max-w-3xl">
+        <div class="w-full">
 
             <div class="flex items-start justify-between gap-4">
                 <div class="flex items-center gap-4">
