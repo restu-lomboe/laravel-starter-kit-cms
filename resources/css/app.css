@@ -67,6 +67,28 @@ body * {
         color 0.2s ease;
 }
 
+.field-input {
+    width: 100%;
+    border-radius: 0.5rem;
+    border: 1px solid var(--color-line);
+    background-color: var(--color-surface);
+    color: var(--color-ink);
+    padding: 0.625rem 0.875rem;
+    font-size: 0.875rem;
+    outline: none;
+}
+.field-input::placeholder {
+    color: color-mix(in srgb, var(--color-mist) 60%, transparent);
+}
+.field-input:focus {
+    border-color: var(--color-amber);
+    box-shadow: 0 0 0 1px var(--color-amber);
+}
+.field-input[disabled] {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 /* sidebar collapse */
 #sidebar.collapsed {
     width: 4.5rem;

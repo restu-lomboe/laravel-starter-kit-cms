@@ -9,7 +9,8 @@
     </div>
 
     <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-0.5 text-sm">
-        <a href="{{ route('admin.dashboard') }}" class="nav-item flex items-center gap-3 rounded-md px-3 py-2 bg-surface-2 text-ink font-medium">
+        <a href="{{ route('admin.dashboard') }}" wire:navigate
+            class="nav-item flex items-center gap-3 rounded-md px-3 py-2 bg-surface-2 text-ink font-medium">
             <svg class="shrink-0 size-4" fill="currentColor" xmlns="http://www.w3.org/2000/svg" width="1em"
                 height="1em" viewBox="0 0 24 24">
                 <path d="M0 0h24v24H0z" fill="none" />
@@ -53,7 +54,64 @@
                     </div>
                 </details>
             </div>
+        </div>
 
+        <div class="flex flex-col">
+            <p class="sidebar-group-label pt-4 pb-1 px-3 text-[10px] uppercase tracking-wide text-mist/60">Settings</p>
+            <div class="px-3 nav-item rounded-md text-mist hover:text-ink transition
+                {{
+                    request()->routeIs('admin.roles.*') ||
+                    request()->routeIs('admin.permission.*') ? 'bg-surface-2' : 'hover:bg-surface-2'
+                }}">
+                <details class="group"
+                    {{
+                       request()->routeIs('admin.roles.*') ||
+                       request()->routeIs('admin.permission.*') ? 'open' : ''
+                    }}
+                >
+                    <summary class="flex items-center justify-between py-3 cursor-pointer list-none select-none">
+                        <div class="flex items-center gap-3 text-sm">
+                            <svg class="shrink-0 size-4" fill="currentColor" xmlns="http://www.w3.org/2000/svg"
+                                width="1em" height="1em" viewBox="0 0 32 32">
+                                <path d="M0 0h32v32H0z" fill="none" />
+                                <path fill="currentColor"
+                                    d="M19.414 30H15v-4.414l5.034-5.034A5 5 0 0 1 20 20a5 5 0 1 1 4.448 4.966ZM17 28h1.586l5.206-5.206l.54.124a3.035 3.035 0 1 0-2.25-2.25l.124.54L17 26.414Z" />
+                                <circle cx="25" cy="20" r="1" fill="currentColor" />
+                                <path fill="currentColor" d="M8 6h12v2H8zm0 4h12v2H8zm0 4h6v2H8zm0 10h4v2H8z" />
+                                <path fill="currentColor"
+                                    d="M12 30H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v9h-2V4H6v24h6Z" />
+                            </svg>
+
+
+                            <span class="sidebar-label whitespace-nowrap">Authorization</span>
+                        </div>
+                        <svg class="size-4 transition-transform duration-200 group-open:rotate-180 text-gray-500 dark:text-neutral-400"
+                            xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 9-7 7-7-7" />
+                        </svg>
+                    </summary>
+                    <div class="relative ml-2 mb-5 border-l border-gray-200 dark:border-neutral-700 pl-2 space-y-1">
+                        <a class="block rounded-lg px-3 py-2 text-gray-700 hover:bg-gray-100 hover:text-gray-900 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-white transition-colors text-sm
+                            {{
+                                request()->routeIs('admin.roles.*')
+                                    ? 'dark:bg-neutral-800 bg-gray-100'
+                                    : ''
+                            }}"
+                            href="{{ route('admin.roles.index') }}" wire:navigate>
+                            Roles
+                        </a>
+                        <a class="block rounded-lg px-3 py-2 text-gray-700 hover:bg-gray-100 hover:text-gray-900 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-white transition-colors text-sm
+                            {{
+                                request()->routeIs('admin.permission.*')
+                                    ? 'dark:bg-neutral-800 bg-gray-100'
+                                    : ''
+                            }}"
+                            href="{{ route('admin.permission.index') }}" wire:navigate>
+                            Permissions
+                        </a>
+                    </div>
+                </details>
+            </div>
             <a href="#"
                 class="nav-item flex items-center gap-3 rounded-md px-3 py-2 text-mist hover:text-ink hover:bg-surface-2 transition">
                 <svg class="shrink-0 size-4" fill="currentColor" xmlns="http://www.w3.org/2000/svg" width="1em"
@@ -64,21 +122,9 @@
                         d="M5 7a4 4 0 1 0 8 0a4 4 0 1 0-8 0M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2m1-17.87a4 4 0 0 1 0 7.75M21 21v-2a4 4 0 0 0-3-3.85" />
                 </svg>
 
-                <span class="sidebar-label whitespace-nowrap">Users</span>
+                <span class="sidebar-label whitespace-nowrap">User Managements</span>
             </a>
         </div>
-
-        <p class="sidebar-group-label pt-4 pb-1 px-3 text-[10px] uppercase tracking-wide text-mist/60">Other</p>
-        <a href="#"
-            class="nav-item flex items-center gap-3 rounded-md px-3 py-2 text-mist hover:text-ink hover:bg-surface-2 transition">
-            <svg class="shrink-0 size-4" fill="currentColor" xmlns="http://www.w3.org/2000/svg" width="1em"
-                height="1em" viewBox="0 0 24 24">
-                <path d="M0 0h24v24H0z" fill="none" />
-                <path fill="currentColor"
-                    d="M12 15.5A3.5 3.5 0 0 1 8.5 12A3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5a3.5 3.5 0 0 1-3.5 3.5m7.43-2.53c.04-.32.07-.64.07-.97s-.03-.66-.07-1l2.11-1.63c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.31-.61-.22l-2.49 1c-.52-.39-1.06-.73-1.69-.98l-.37-2.65A.506.506 0 0 0 14 2h-4c-.25 0-.46.18-.5.42l-.37 2.65c-.63.25-1.17.59-1.69.98l-2.49-1c-.22-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64L4.57 11c-.04.34-.07.67-.07 1s.03.65.07.97l-2.11 1.66c-.19.15-.25.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1.01c.52.4 1.06.74 1.69.99l.37 2.65c.04.24.25.42.5.42h4c.25 0 .46-.18.5-.42l.37-2.65c.63-.26 1.17-.59 1.69-.99l2.49 1.01c.22.08.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64z" />
-            </svg>
-            <span class="sidebar-label whitespace-nowrap">Company settings</span>
-        </a>
     </nav>
 </aside>
 

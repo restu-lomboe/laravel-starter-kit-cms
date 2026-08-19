@@ -150,7 +150,6 @@ function initDashboard() {
     bindActionButtons();
 }
 
-// Export functions for Livewire / legacy references
 if (typeof window !== "undefined") {
     const jsApi = (window.$js = window.$js || {});
     jsApi.toggleTheme = toggleTheme;
@@ -161,9 +160,20 @@ if (typeof window !== "undefined") {
     globalThis.$js = jsApi;
 }
 
-// Initialize on document ready
 if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", initDashboard);
 } else {
     initDashboard();
+}
+
+document.addEventListener("livewire:navigated", () => {
+    initTheme();
+    bindActionButtons();
+});
+
+if (typeof window !== "undefined") {
+    window.addEventListener("pageshow", () => {
+        initTheme();
+        bindActionButtons();
+    });
 }

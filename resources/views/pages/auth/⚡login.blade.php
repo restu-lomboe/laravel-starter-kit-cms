@@ -43,7 +43,7 @@ new class extends Component {
                         <span
                             class="hidden sm:inline-flex items-center rounded-full border border-line px-3 py-1 text-xs font-mono text-mist">HRMS
                             Portal</span>
-                        <button id="theme-toggle" type="button" wire:click="$js.toggleTheme"
+                        <button id="theme-toggle" type="button" data-action="toggleTheme"
                             aria-label="Toggle dark mode"
                             class="inline-flex size-7 items-center justify-center rounded-full border border-line text-mist hover:text-ink hover:border-mist transition">
                             <svg id="icon-sun" class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -236,18 +236,3 @@ new class extends Component {
         </div>
     </div>
 </div>
-
-<script>
-    function setIcons(isDark) {
-        document.getElementById('icon-sun').classList.toggle('hidden', isDark);
-        document.getElementById('icon-moon').classList.toggle('hidden', !isDark);
-    }
-    this.$js.toggleTheme = () => {
-        var isDark = document.documentElement.classList.toggle('dark');
-        try {
-            localStorage.setItem('anchor-hr-theme', isDark ? 'dark' : 'light');
-        } catch (e) {}
-        setIcons(isDark);
-    }
-    setIcons(document.documentElement.classList.contains('dark'));
-</script>
