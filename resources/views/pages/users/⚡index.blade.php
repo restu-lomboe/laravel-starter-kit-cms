@@ -66,7 +66,7 @@ new class extends Component {
             ],
             'unsortable' => ['actions', 'roles'],
             'searchable' => ['name', 'email'],
-        ])->layout('layouts.app');
+        ]);
     }
 };
 ?>

@@ -17,23 +17,27 @@
         integrity="sha512-ApSLB1Pd3/bZN8fWB/RG9YhN/7bd9Hkf3AGaE2mPfebjrxagjuBtx2GcgdqIlJkUzwylBo61r9Xa9NmgBI0swA=="
         crossorigin="anonymous" referrerpolicy="no-referrer" />
 
+    <script>
+        if (localStorage.getItem('anchor-hr-theme') === 'dark') {
+            document.documentElement.classList.add('dark');
+        }
+    </script>
+
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 
     @livewireStyles
-    <script>
-        (function() {
-            try {
-                var saved = localStorage.getItem('anchor-hr-theme');
-                var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                if (saved ? saved === 'dark' : prefersDark) {
-                    document.documentElement.classList.add('dark');
-                }
-            } catch (e) {}
-        })();
-    </script>
 </head>
 
-<body class="min-h-screen font-sans text-paper antialiased">
+<body class="min-h-screen font-sans text-paper antialiased"
+    x-cloak
+    x-data="{
+        darkMode: localStorage.getItem('anchor-hr-theme') === 'dark',
+        toggleDarkMode() {
+            this.darkMode = !this.darkMode;
+            localStorage.setItem('anchor-hr-theme', this.darkMode ? 'dark' : 'light');
+            document.documentElement.classList.toggle('dark');
+        }
+    }">
 
     {{-- check if prefix admin --}}
     @if (Route::is('admin.*'))
