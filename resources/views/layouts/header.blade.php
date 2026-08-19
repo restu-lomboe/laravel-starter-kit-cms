@@ -45,10 +45,13 @@
             <button id="profile-trigger" type="button" data-action="toggleProfileMenu"
                 class="flex items-center gap-2 rounded-full hover:bg-surface-2 transition hover:pr-3 hover:pl-1">
                 <span
-                    class="flex size-9 items-center justify-center rounded-full bg-surface-2 text-xs font-medium text-ink">DA</span>
+                    class="flex size-9 items-center justify-center rounded-full bg-surface-2 text-xs font-medium text-ink">
+                    {{ strtoupper(substr(auth()->user()->name, 0, 1) . substr(strrchr(auth()->user()->name, ' '), 1, 1))
+                    }}
+                </span>
                 <span
                     class="hidden sm:inline-block text-sm text-zinc-500 dark:text-white/80 group-hover:text-zinc-800 dark:group-hover:text-white font-medium truncate">
-                    Hiroko Pearson
+                    {{ auth()->user()->name }}
                 </span>
                 <svg class="hidden sm:inline-block shrink-0 size-4 dark:text-white font-bold" fill="currentColor"
                     xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 256 256">
@@ -64,9 +67,9 @@
                 style="box-shadow: 0 12px 32px -12px var(--card-shadow, rgba(0,0,0,.25));">
 
                 <div class="px-4 pb-3">
-                    <p class="text-sm font-semibold text-ink">Super Admin <span
+                    <p class="text-sm font-semibold text-ink">{{ auth()->user()->name }}<span
                             class="font-normal text-mist">(user)</span></p>
-                    <p class="text-xs text-mist mt-0.5">superadmin@saas.local</p>
+                    <p class="text-xs text-mist mt-0.5">{{ auth()->user()->email }}</p>
                 </div>
 
                 <div class="border-t border-line flex items-center justify-between">

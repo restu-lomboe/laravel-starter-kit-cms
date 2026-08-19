@@ -46,7 +46,7 @@ new class extends Component {
 
         session()->regenerate();
 
-        return redirect()->intended(route('admin.dashboard'));
+        return $this->redirectIntended(default: route('admin.dashboard'), navigate: true);
     }
 };
 ?>
@@ -126,9 +126,16 @@ new class extends Component {
                                                 class="text-xs text-amber-deep hover:text-ink transition">Forgot
                                                 password?</button>
                                         </div>
-                                        <input id="password" type="password" wire:model="password"
-                                            placeholder="••••••••••"
-                                            class="w-full rounded-lg border border-line bg-surface px-3.5 py-2.5 text-sm text-ink placeholder-mist/60 outline-none focus:border-amber focus:ring-1 focus:ring-amber transition" />
+                                        <div class="relative">
+                                            <input id="confirm-password" type="password" wire:model="password"
+                                                placeholder="••••••••••"
+                                                class="w-full rounded-lg border border-line bg-surface px-3.5 py-2.5 text-sm text-ink placeholder-mist/60 outline-none focus:border-amber focus:ring-1 focus:ring-amber transition" />
+                                            <button type="button"
+                                                wire:click="$js.togglePasswordField('confirm-password', $event.currentTarget)"
+                                                class="absolute right-3 top-1/2 -translate-y-1/2 text-mist hover:text-ink transition">
+                                                <i class="fa-solid fa-eye-slash text-xs"></i>
+                                            </button>
+                                        </div>
                                         @error('password')
                                             <p class="mt-1.5 text-xs flex items-center gap-1" style="color:#ef4444;">
                                                 <i class="fa-solid fa-circle-exclamation text-[10px]"></i>
@@ -273,3 +280,15 @@ new class extends Component {
         </div>
     </div>
 </div>
+
+<script>
+    this.$js.togglePasswordField = (inputId, btn) => {
+        console.log(inputId);
+        var input = document.getElementById(inputId);
+        var icon = btn.querySelector('i');
+        var isPassword = input.type === 'password';
+        input.type = isPassword ? 'text' : 'password';
+        icon.classList.toggle('fa-eye-slash', !isPassword);
+        icon.classList.toggle('fa-eye', isPassword);
+    }
+</script>

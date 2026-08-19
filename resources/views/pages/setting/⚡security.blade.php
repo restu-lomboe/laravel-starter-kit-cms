@@ -1,9 +1,53 @@
 <?php
 
+use Jantinnerezo\LivewireAlert\Facades\LivewireAlert;
 use Livewire\Component;
 
 new class extends Component {
-    //
+    public $current_password = '';
+    public $password = '';
+    public $password_confirmation = '';
+
+    public function updatePassword()
+    {
+        $this->validate([
+            'current_password' => ['required', 'string'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        if (\Hash::check($this->current_password, auth()->user()->password)) {
+            auth()
+                ->user()
+                ->update([
+                    'password' => \Hash::make($this->password),
+                ]);
+
+            LivewireAlert::title('Password successfully updated')
+                ->success()
+                ->toast()
+                ->position('center')
+                ->timer(2500)
+                ->timerProgressBar()
+                ->withOptions([
+                    'width' => '30%',
+                ])
+                ->show();
+
+            // reset form
+            $this->reset('current_password', 'password', 'password_confirmation');
+        } else {
+            LivewireAlert::title('Current password is incorrect')
+                ->error()
+                ->toast()
+                ->position('center')
+                ->timer(2500)
+                ->timerProgressBar()
+                ->withOptions([
+                    'width' => '30%',
+                ])
+                ->show();
+        }
+    }
 };
 ?>
 
@@ -15,51 +59,78 @@ new class extends Component {
             <p class="text-sm font-semibold text-ink">Update password</p>
             <p class="text-xs text-mist mt-0.5">Ensure your account is using a long, random password to stay secure</p>
 
-            <div class="mt-4 space-y-4 max-w-md">
-                <div>
-                    <label for="current-password" class="block text-xs font-medium text-mist mb-1.5">Current
-                        password</label>
-                    <div class="relative">
-                        <input id="current-password" type="password"
-                            class="w-full rounded-lg border border-line bg-surface px-3.5 py-2.5 pr-10 text-sm text-ink outline-none focus:border-amber focus:ring-1 focus:ring-amber transition" />
-                        <button type="button" wire:click="$js.togglePasswordField('current-password', $event.currentTarget)"
-                            class="absolute right-3 top-1/2 -translate-y-1/2 text-mist hover:text-ink transition">
-                            <i class="fa-solid fa-eye text-xs"></i>
-                        </button>
+            <form wire:submit="updatePassword">
+                <div class="mt-4 space-y-4 max-w-md">
+                    <div>
+                        <label for="current-password" class="block text-xs font-medium text-mist mb-1.5">Current
+                            password</label>
+                        <div class="relative">
+                            <input id="current-password" type="password" wire:model="current_password"
+                                class="w-full rounded-lg border border-line bg-surface px-3.5 py-2.5 pr-10 text-sm text-ink outline-none focus:border-amber focus:ring-1 focus:ring-amber transition"
+                                required />
+                            <button type="button"
+                                wire:click="$js.togglePasswordField('current-password', $event.currentTarget)"
+                                class="absolute right-3 top-1/2 -translate-y-1/2 text-mist hover:text-ink transition">
+                                <i class="fa-solid fa-eye-slash text-xs"></i>
+                            </button>
+                        </div>
+                        @error('current_password')
+                            <p class="mt-1.5 text-xs flex items-center gap-1" style="color:#ef4444;">
+                                <i class="fa-solid fa-circle-exclamation text-[10px]"></i>
+                                <span>{{ $message }}</span>
+                            </p>
+                        @enderror
                     </div>
-                </div>
 
-                <div>
-                    <label for="new-password" class="block text-xs font-medium text-mist mb-1.5">New password</label>
-                    <div class="relative">
-                        <input id="new-password" type="password"
-                            class="w-full rounded-lg border border-line bg-surface px-3.5 py-2.5 pr-10 text-sm text-ink outline-none focus:border-amber focus:ring-1 focus:ring-amber transition" />
-                        <button type="button" wire:click="$js.togglePasswordField('new-password', $event.currentTarget)"
-                            class="absolute right-3 top-1/2 -translate-y-1/2 text-mist hover:text-ink transition">
-                            <i class="fa-solid fa-eye text-xs"></i>
-                        </button>
+                    <div>
+                        <label for="new-password" class="block text-xs font-medium text-mist mb-1.5">New
+                            password</label>
+                        <div class="relative">
+                            <input id="new-password" type="password" wire:model="password"
+                                class="w-full rounded-lg border border-line bg-surface px-3.5 py-2.5 pr-10 text-sm text-ink outline-none focus:border-amber focus:ring-1 focus:ring-amber transition"
+                                required />
+                            <button type="button"
+                                wire:click="$js.togglePasswordField('new-password', $event.currentTarget)"
+                                class="absolute right-3 top-1/2 -translate-y-1/2 text-mist hover:text-ink transition">
+                                <i class="fa-solid fa-eye-slash text-xs"></i>
+                            </button>
+                        </div>
+                        @error('password')
+                            <p class="mt-1.5 text-xs flex items-center gap-1" style="color:#ef4444;">
+                                <i class="fa-solid fa-circle-exclamation text-[10px]"></i>
+                                <span>{{ $message }}</span>
+                            </p>
+                        @enderror
                     </div>
-                </div>
 
-                <div>
-                    <label for="confirm-password" class="block text-xs font-medium text-mist mb-1.5">Confirm
-                        password</label>
-                    <div class="relative">
-                        <input id="confirm-password" type="password"
-                            class="w-full rounded-lg border border-line bg-surface px-3.5 py-2.5 pr-10 text-sm text-ink outline-none focus:border-amber focus:ring-1 focus:ring-amber transition" />
-                        <button type="button" wire:click="$js.togglePasswordField('confirm-password', $event.currentTarget)"
-                            class="absolute right-3 top-1/2 -translate-y-1/2 text-mist hover:text-ink transition">
-                            <i class="fa-solid fa-eye text-xs"></i>
-                        </button>
+                    <div>
+                        <label for="confirm-password" class="block text-xs font-medium text-mist mb-1.5">Confirm
+                            password</label>
+                        <div class="relative">
+                            <input id="confirm-password" type="password" wire:model="password_confirmation"
+                                class="w-full rounded-lg border border-line bg-surface px-3.5 py-2.5 pr-10 text-sm text-ink outline-none focus:border-amber focus:ring-1 focus:ring-amber transition"
+                                required />
+                            <button type="button"
+                                wire:click="$js.togglePasswordField('confirm-password', $event.currentTarget)"
+                                class="absolute right-3 top-1/2 -translate-y-1/2 text-mist hover:text-ink transition">
+                                <i class="fa-solid fa-eye-slash text-xs"></i>
+                            </button>
+                        </div>
+                        @error('password_confirmation')
+                            <p class="mt-1.5 text-xs flex items-center gap-1" style="color:#ef4444;">
+                                <i class="fa-solid fa-circle-exclamation text-[10px]"></i>
+                                <span>{{ $message }}</span>
+                            </p>
+                        @enderror
                     </div>
-                </div>
 
-                <button type="button"
-                    class="rounded-lg bg-ink px-4 py-2.5 text-sm font-semibold hover:brightness-110 transition"
-                    style="color: var(--color-card);">
-                    Save
-                </button>
-            </div>
+                    <button type="submit" wire:loading.attr="disabled"
+                        class="rounded-lg bg-ink px-4 py-2.5 text-sm font-semibold hover:brightness-110 transition disabled:opacity-50 disabled:cursor-wait"
+                        style="color: var(--color-card);">
+                        Update password
+                    </button>
+                </div>
+            </form>
         </div>
 
         <!-- Two-factor authentication -->
@@ -108,7 +179,7 @@ new class extends Component {
         var icon = btn.querySelector('i');
         var isPassword = input.type === 'password';
         input.type = isPassword ? 'text' : 'password';
-        icon.classList.toggle('fa-eye', !isPassword);
-        icon.classList.toggle('fa-eye-slash', isPassword);
+        icon.classList.toggle('fa-eye-slash', !isPassword);
+        icon.classList.toggle('fa-eye', isPassword);
     }
 </script>
