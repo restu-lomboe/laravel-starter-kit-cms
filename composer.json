@@ -9,6 +9,7 @@
         "php": "^8.3",
         "developerawam/livewire-datatable": "*",
         "jantinnerezo/livewire-alert": "^4.2",
+        "laravel/fortify": "^1.38",
         "laravel/framework": "^13.17",
         "laravel/tinker": "^3.0",
         "livewire/livewire": "^4.4",
