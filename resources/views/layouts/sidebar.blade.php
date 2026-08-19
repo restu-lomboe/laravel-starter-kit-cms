@@ -10,7 +10,7 @@
 
     <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-0.5 text-sm">
         <a href="{{ route('admin.dashboard') }}" wire:navigate
-            class="nav-item flex items-center gap-3 rounded-md px-3 py-2 bg-surface-2 text-ink font-medium">
+            class="nav-item flex items-center gap-3 rounded-md px-3 py-2 font-medium {{ request()->routeIs('admin.dashboard') ? 'bg-surface-2 text-ink' : 'hover:bg-surface-2 hover:text-ink text-mist' }}">
             <svg class="shrink-0 size-4" fill="currentColor" xmlns="http://www.w3.org/2000/svg" width="1em"
                 height="1em" viewBox="0 0 24 24">
                 <path d="M0 0h24v24H0z" fill="none" />
@@ -58,7 +58,8 @@
 
         <div class="flex flex-col">
             <p class="sidebar-group-label pt-4 pb-1 px-3 text-[10px] uppercase tracking-wide text-mist/60">Settings</p>
-            <div class="px-3 nav-item rounded-md text-mist hover:text-ink transition
+            @canany(['roles.index', 'permission.index'])
+                <div class="px-3 nav-item rounded-md text-mist hover:text-ink transition
                 {{
                     request()->routeIs('admin.roles.*') ||
                     request()->routeIs('admin.permission.*') ? 'bg-surface-2' : 'hover:bg-surface-2'
@@ -67,8 +68,7 @@
                     {{
                        request()->routeIs('admin.roles.*') ||
                        request()->routeIs('admin.permission.*') ? 'open' : ''
-                    }}
-                >
+                    }}>
                     <summary class="flex items-center justify-between py-3 cursor-pointer list-none select-none">
                         <div class="flex items-center gap-3 text-sm">
                             <svg class="shrink-0 size-4" fill="currentColor" xmlns="http://www.w3.org/2000/svg"
@@ -91,29 +91,35 @@
                         </svg>
                     </summary>
                     <div class="relative ml-2 mb-5 border-l border-gray-200 dark:border-neutral-700 pl-2 space-y-1">
-                        <a class="block rounded-lg px-3 py-2 text-gray-700 hover:bg-gray-100 hover:text-gray-900 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-white transition-colors text-sm
-                            {{
-                                request()->routeIs('admin.roles.*')
-                                    ? 'dark:bg-neutral-800 bg-gray-100'
-                                    : ''
-                            }}"
-                            href="{{ route('admin.roles.index') }}" wire:navigate>
-                            Roles
-                        </a>
-                        <a class="block rounded-lg px-3 py-2 text-gray-700 hover:bg-gray-100 hover:text-gray-900 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-white transition-colors text-sm
-                            {{
-                                request()->routeIs('admin.permission.*')
-                                    ? 'dark:bg-neutral-800 bg-gray-100'
-                                    : ''
-                            }}"
-                            href="{{ route('admin.permission.index') }}" wire:navigate>
-                            Permissions
-                        </a>
+                        @can('roles.index')
+                            <a class="block rounded-lg px-3 py-2 text-gray-700 hover:bg-gray-100 hover:text-gray-900 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-white transition-colors text-sm
+                                {{
+                                    request()->routeIs('admin.roles.*')
+                                        ? 'dark:bg-neutral-800 bg-gray-100'
+                                        : ''
+                                }}"
+                                href="{{ route('admin.roles.index') }}" wire:navigate>
+                                Roles
+                            </a>
+                        @endcan
+                        @can('permission.index')
+                            <a class="block rounded-lg px-3 py-2 text-gray-700 hover:bg-gray-100 hover:text-gray-900 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-white transition-colors text-sm
+                                {{
+                                    request()->routeIs('admin.permission.*')
+                                        ? 'dark:bg-neutral-800 bg-gray-100'
+                                        : ''
+                                }}"
+                                href="{{ route('admin.permission.index') }}" wire:navigate>
+                                Permissions
+                            </a>
+                        @endcan
                     </div>
                 </details>
             </div>
-            <a href="#"
-                class="nav-item flex items-center gap-3 rounded-md px-3 py-2 text-mist hover:text-ink hover:bg-surface-2 transition">
+            @endcanany
+            @can('users.index')
+                <a href="{{ route('admin.user.index') }}" wire:navigate
+                class="nav-item flex items-center gap-3 rounded-md px-3 py-2 hover:text-ink transition {{ request()->routeIs('admin.user.*') ? 'bg-surface-2 text-ink' : 'hover:bg-surface-2 text-mist' }}">
                 <svg class="shrink-0 size-4" fill="currentColor" xmlns="http://www.w3.org/2000/svg" width="1em"
                     height="1em" viewBox="0 0 24 24">
                     <path d="M0 0h24v24H0z" fill="none" />
@@ -124,6 +130,7 @@
 
                 <span class="sidebar-label whitespace-nowrap">User Managements</span>
             </a>
+            @endcan
         </div>
     </nav>
 </aside>

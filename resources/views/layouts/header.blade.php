@@ -78,11 +78,14 @@
                 </div>
 
                 <div class="border-t border-line">
-                    <button type="button"
-                        class="flex w-full items-center gap-2 text-sm text-mist hover:text-ink hover:bg-surface-2 transition px-4 py-4">
-                        <i class="fa-solid fa-arrow-right-from-bracket"></i>
-                        Log out
-                    </button>
+                    <form method="POST" action="{{ route('admin.logout') }}">
+                        @csrf
+                        <button type="submit"
+                            class="flex w-full items-center gap-2 text-sm text-mist hover:text-ink hover:bg-surface-2 transition px-4 py-4">
+                            <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                            Log out
+                        </button>
+                    </form>
                 </div>
             </div>
         </div>

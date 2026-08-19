@@ -29,7 +29,7 @@ new class extends Component {
     public function save(): void
     {
         $this->validate([
-            'name' => ['required', 'string', 'max:255', Rule::unique('permissions', 'name')->where(fn ($query) => $query->where('guard_name', $this->guard_name))->ignore($this->permissionId)],
+            'name' => ['required', 'string', 'max:255', 'regex:/^[a-zA-Z0-9_.-]+$/', Rule::unique('permissions', 'name')->where(fn ($query) => $query->where('guard_name', $this->guard_name))->ignore($this->permissionId)],
             'description' => ['nullable', 'string', 'max:255'],
             'page' => ['nullable', 'string', 'max:255'],
             'feature' => ['nullable', 'string', 'max:255'],

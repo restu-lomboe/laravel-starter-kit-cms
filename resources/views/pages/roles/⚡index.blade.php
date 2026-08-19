@@ -25,6 +25,8 @@ new class extends Component {
 
     public function delete(int $id): void
     {
+        abort_unless(auth()->user()->can('roles.delete'), 403);
+
         Role::findOrFail($id)->delete();
 
         session()->flash('success', 'Role deleted successfully.');
@@ -42,11 +44,13 @@ new class extends Component {
                 <h1 class="font-display text-2xl font-medium tracking-tight text-ink">Roles</h1>
                 <p class="mt-1 text-sm text-mist">Group permissions into roles and assign them to users</p>
             </div>
-            <a href="{{ route('admin.roles.create') }}" wire:navigate
-                class="inline-flex shrink-0 items-center gap-2 rounded-lg bg-amber px-4 py-2.5 text-sm font-semibold text-on-amber hover:brightness-95 transition">
-                <i class="fa-solid fa-plus text-xs"></i>
-                New role
-            </a>
+            @can('roles.create')
+                <a href="{{ route('admin.roles.create') }}" wire:navigate
+                    class="inline-flex shrink-0 items-center gap-2 rounded-lg bg-amber px-4 py-2.5 text-sm font-semibold text-on-amber hover:brightness-95 transition">
+                    <i class="fa-solid fa-plus text-xs"></i>
+                    New role
+                </a>
+            @endcan
         </div>
 
         @if (session('success'))
@@ -102,22 +106,28 @@ new class extends Component {
                                 </td>
                                 <td class="px-5 py-3">
                                     <div class="flex items-center justify-end gap-1">
-                                        <a href="{{ route('admin.roles.detail', $role->id) }}" wire:navigate
-                                            title="Detail"
-                                            class="inline-flex size-8 items-center justify-center rounded-lg text-mist hover:text-ink hover:bg-surface-2 transition">
-                                            <i class="fa-solid fa-eye text-xs"></i>
-                                        </a>
-                                        <a href="{{ route('admin.roles.update', $role->id) }}" wire:navigate
-                                            title="Edit"
-                                            class="inline-flex size-8 items-center justify-center rounded-lg text-mist hover:text-ink hover:bg-surface-2 transition">
-                                            <i class="fa-solid fa-pen text-xs"></i>
-                                        </a>
-                                        <button type="button" wire:click="delete({{ $role->id }})"
-                                            wire:confirm="Delete role \"{{ $role->name }}\"? This cannot be undone."
-                                            title="Delete"
-                                            class="inline-flex size-8 items-center justify-center rounded-lg text-mist hover:text-red-600 hover:bg-surface-2 transition">
-                                            <i class="fa-solid fa-trash-can text-xs"></i>
-                                        </button>
+                                        @can('roles.detail')
+                                            <a href="{{ route('admin.roles.detail', $role->id) }}" wire:navigate
+                                                title="Detail"
+                                                class="inline-flex size-8 items-center justify-center rounded-lg text-mist hover:text-ink hover:bg-surface-2 transition">
+                                                <i class="fa-solid fa-eye text-xs"></i>
+                                            </a>
+                                        @endcan
+                                        @can('roles.update')
+                                            <a href="{{ route('admin.roles.update', $role->id) }}" wire:navigate
+                                                title="Edit"
+                                                class="inline-flex size-8 items-center justify-center rounded-lg text-mist hover:text-ink hover:bg-surface-2 transition">
+                                                <i class="fa-solid fa-pen text-xs"></i>
+                                            </a>
+                                        @endcan
+                                        @can('roles.delete')
+                                            <button type="button" wire:click="delete({{ $role->id }})"
+                                                wire:confirm="Delete role "{{ $role->name }}"? This cannot be undone."
+                                                title="Delete"
+                                                class="inline-flex size-8 items-center justify-center rounded-lg text-mist hover:text-red-600 hover:bg-surface-2 transition">
+                                                <i class="fa-solid fa-trash-can text-xs"></i>
+                                            </button>
+                                        @endcan
                                     </div>
                                 </td>
                             </tr>
@@ -125,11 +135,13 @@ new class extends Component {
                             <tr>
                                 <td colspan="5" class="px-5 py-10 text-center">
                                     <p class="text-sm text-mist">No roles found</p>
-                                    <a href="{{ route('admin.roles.create') }}" wire:navigate
-                                        class="mt-2 inline-flex items-center gap-2 text-xs text-amber-deep hover:text-ink transition">
-                                        <i class="fa-solid fa-plus text-[10px]"></i>
-                                        Create the first role
-                                    </a>
+                                    @can('roles.create')
+                                        <a href="{{ route('admin.roles.create') }}" wire:navigate
+                                            class="mt-2 inline-flex items-center gap-2 text-xs text-amber-deep hover:text-ink transition">
+                                            <i class="fa-solid fa-plus text-[10px]"></i>
+                                            Create the first role
+                                        </a>
+                                    @endcan
                                 </td>
                             </tr>
                         @endforelse

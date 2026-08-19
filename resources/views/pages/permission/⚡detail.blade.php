@@ -46,11 +46,13 @@ new class extends Component {
                     <p class="mt-1 text-sm text-mist">Details of the selected permission</p>
                 </div>
                 <div class="flex items-center gap-2 shrink-0">
-                    <a href="{{ route('admin.permission.update', $this->permissionId) }}" wire:navigate
-                        class="inline-flex items-center gap-2 rounded-lg border border-line bg-surface px-4 py-2.5 text-sm font-medium text-ink hover:border-mist transition">
-                        <i class="fa-solid fa-pen text-xs"></i>
-                        Edit
-                    </a>
+                    @can('permission.update')
+                        <a href="{{ route('admin.permission.update', $this->permissionId) }}" wire:navigate
+                            class="inline-flex items-center gap-2 rounded-lg border border-line bg-surface px-4 py-2.5 text-sm font-medium text-ink hover:border-mist transition">
+                            <i class="fa-solid fa-pen text-xs"></i>
+                            Edit
+                        </a>
+                    @endcan
                     <a href="{{ route('admin.permission.index') }}" wire:navigate
                         class="inline-flex items-center gap-2 rounded-lg border border-line bg-surface px-4 py-2.5 text-sm font-medium text-ink hover:border-mist transition">
                         <i class="fa-solid fa-arrow-left text-xs"></i>

@@ -1,15 +1,23 @@
 <?php
 
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\On;
 use Livewire\Component;
 
 new class extends Component {
     public $forgot_password = false;
     public $type;
+    public $email = '';
+    public $password = '';
+    public $remember = false;
 
     public function mount()
     {
         $this->type = request()->query('type');
+
+        if (Auth::check()) {
+            $this->redirectRoute('admin.dashboard');
+        }
     }
 
     public function forgotPassword()
@@ -21,6 +29,24 @@ new class extends Component {
     public function backToLogin()
     {
         $this->forgot_password = false;
+    }
+
+    public function login()
+    {
+        $this->validate([
+            'email' => ['required', 'email'],
+            'password' => ['required', 'string'],
+        ]);
+
+        if (!Auth::attempt(['email' => $this->email, 'password' => $this->password], $this->remember)) {
+            session()->flash('error', 'These credentials do not match our records.');
+
+            return;
+        }
+
+        session()->regenerate();
+
+        return redirect()->intended(route('admin.dashboard'));
     }
 };
 ?>
@@ -43,8 +69,7 @@ new class extends Component {
                         <span
                             class="hidden sm:inline-flex items-center rounded-full border border-line px-3 py-1 text-xs font-mono text-mist">HRMS
                             Portal</span>
-                        <button id="theme-toggle" type="button" data-action="toggleTheme"
-                            aria-label="Toggle dark mode"
+                        <button id="theme-toggle" type="button" data-action="toggleTheme" aria-label="Toggle dark mode"
                             class="inline-flex size-7 items-center justify-center rounded-full border border-line text-mist hover:text-ink hover:border-mist transition">
                             <svg id="icon-sun" class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -81,11 +106,15 @@ new class extends Component {
                                     organization — all in
                                     one place.</p>
 
-                                <form class="mt-6 space-y-5">
+                                <form wire:submit="login" class="mt-6 space-y-5">
+
+                                    @include('components.messages')
+
                                     <div>
                                         <label for="email" class="block text-xs font-medium text-mist mb-1.5">Work
                                             email</label>
-                                        <input id="email" type="email" placeholder="you@company.com"
+                                        <input id="email" type="email" wire:model="email"
+                                            placeholder="you@company.com"
                                             class="w-full rounded-lg border border-line bg-surface px-3.5 py-2.5 text-sm text-ink placeholder-mist/60 outline-none focus:border-amber focus:ring-1 focus:ring-amber transition" />
                                     </div>
 
@@ -97,19 +126,27 @@ new class extends Component {
                                                 class="text-xs text-amber-deep hover:text-ink transition">Forgot
                                                 password?</button>
                                         </div>
-                                        <input id="password" type="password" placeholder="••••••••••"
+                                        <input id="password" type="password" wire:model="password"
+                                            placeholder="••••••••••"
                                             class="w-full rounded-lg border border-line bg-surface px-3.5 py-2.5 text-sm text-ink placeholder-mist/60 outline-none focus:border-amber focus:ring-1 focus:ring-amber transition" />
+                                        @error('password')
+                                            <p class="mt-1.5 text-xs flex items-center gap-1" style="color:#ef4444;">
+                                                <i class="fa-solid fa-circle-exclamation text-[10px]"></i>
+                                                {{ $message }}
+                                            </p>
+                                        @enderror
                                     </div>
 
                                     <label class="flex items-center gap-2 text-xs text-mist select-none">
-                                        <input type="checkbox"
+                                        <input type="checkbox" wire:model="remember"
                                             class="h-3.5 w-3.5 rounded border-line bg-surface accent-amber" />
                                         Keep me signed in on this device
                                     </label>
 
-                                    <button type="submit"
-                                        class="w-full rounded-lg bg-amber py-2.5 text-sm font-semibold text-on-amber hover:brightness-95 transition">
-                                        Sign in
+                                    <button type="submit" wire:loading.attr="disabled" wire:loading.class="opacity-60"
+                                        class="w-full rounded-lg bg-amber py-2.5 text-sm font-semibold text-on-amber hover:brightness-95 transition disabled:cursor-wait">
+                                        <span wire:loading.remove>Sign in</span>
+                                        <span wire:loading>Signing in…</span>
                                     </button>
 
                                     <div class="flex items-center gap-3 py-1">
