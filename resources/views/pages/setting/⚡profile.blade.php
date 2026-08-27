@@ -104,7 +104,7 @@ new class extends Component {
                                     <label for="name"
                                         class="block text-xs font-medium text-mist mb-1.5">Name</label>
                                     <input id="name" type="text" wire:model="name" value="Hiroko Pearson"
-                                        class="w-full max-w-md rounded-lg border border-line bg-surface px-3.5 py-2.5 text-sm text-ink outline-none focus:border-amber focus:ring-1 focus:ring-amber transition"
+                                        class="w-full max-w-lg rounded-lg border border-line bg-surface px-3.5 py-2.5 text-sm text-ink outline-none focus:border-amber focus:ring-1 focus:ring-amber transition"
                                          required />
                                     @error('name')
                                         <p class="mt-1.5 text-xs flex items-center gap-1" style="color:#ef4444;">
@@ -118,7 +118,7 @@ new class extends Component {
                                     <label for="email"
                                         class="block text-xs font-medium text-mist mb-1.5">Email</label>
                                     <input id="email" type="email" wire:model="email" value="hapib@mailinator.com"
-                                        class="w-full max-w-md rounded-lg border border-line bg-surface px-3.5 py-2.5 text-sm text-ink outline-none focus:border-amber focus:ring-1 focus:ring-amber transition"
+                                        class="w-full max-w-lg rounded-lg border border-line bg-surface px-3.5 py-2.5 text-sm text-ink outline-none focus:border-amber focus:ring-1 focus:ring-amber transition"
                                         required />
                                     @error('email')
                                         <p class="mt-1.5 text-xs flex items-center gap-1" style="color:#ef4444;">

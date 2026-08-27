@@ -3,6 +3,9 @@
 use Illuminate\Support\Facades\Route;
 
 Route::livewire('/', 'pages::auth.login')->name('login');
+Route::livewire('/two-factor-challenge', 'pages::auth.two-factor-challenge')
+    ->middleware('guest')
+    ->name('two-factor.login');
 
 // route groups prefixe admin
 Route::middleware('auth.login')->prefix('admin')->name('admin.')->group(function () {

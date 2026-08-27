@@ -2,75 +2,90 @@
 
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
-use Laravel\Fortify\Events\TwoFactorAuthenticationChallenged;
-use Livewire\Attributes\On;
+use Laravel\Fortify\Contracts\TwoFactorAuthenticationProvider;
+use Laravel\Fortify\Events\TwoFactorAuthenticationFailed;
+use Laravel\Fortify\Events\ValidTwoFactorAuthenticationCodeProvided;
+use Laravel\Fortify\Fortify;
 use Livewire\Component;
 
 new class extends Component {
-    public $forgot_password = false;
-    public $type;
-    public $email = '';
-    public $password = '';
-    public $remember = false;
+    public string $code = '';
+    public string $recovery_code = '';
+    public bool $recovery = false;
 
-    public function mount()
+    public function mount(): void
     {
-        $this->type = request()->query('type');
-
-        if (Auth::check()) {
-            $this->redirectRoute('admin.dashboard');
-        }
-    }
-
-    public function forgotPassword()
-    {
-        $this->forgot_password = true;
-    }
-
-    #[On('back-to-login')]
-    public function backToLogin()
-    {
-        $this->forgot_password = false;
-    }
-
-    public function login()
-    {
-        $this->validate([
-            'email' => ['required', 'email'],
-            'password' => ['required', 'string'],
-        ]);
-
-        $email = Str::lower(trim($this->email));
-        $user = User::whereRaw('LOWER(email) = ?', [$email])->first();
-
-        if (! $user || ! Hash::check($this->password, $user->password)) {
-            session()->flash('error', 'These credentials do not match our records.');
+        if (! session()->has('login.id')) {
+            $this->redirectRoute('login', navigate: true);
 
             return;
         }
 
-        if (Hash::needsRehash($user->password)) {
-            $user->forceFill(['password' => Hash::make($this->password)])->save();
+        if (Auth::check()) {
+            $this->redirectRoute('admin.dashboard', navigate: true);
+        }
+    }
+
+    public function toggleRecovery(): void
+    {
+        $this->recovery = ! $this->recovery;
+        $this->resetErrorBag();
+        $this->reset('code', 'recovery_code');
+    }
+
+    public function challenge(): void
+    {
+        $this->validate($this->recovery ? [
+            'recovery_code' => ['required', 'string'],
+        ] : [
+            'code' => ['required', 'string'],
+        ]);
+
+        $userId = session()->get('login.id');
+        $user = $userId ? User::find($userId) : null;
+
+        if (! $user) {
+            session()->forget(['login.id', 'login.remember']);
+
+            $this->redirectRoute('login', navigate: true);
+
+            return;
         }
 
-        if ($user->hasEnabledTwoFactorAuthentication()) {
-            session()->put([
-                'login.id' => $user->getKey(),
-                'login.remember' => $this->remember,
-            ]);
+        if ($this->recovery) {
+            $validCode = collect($user->recoveryCodes())->first(function ($code) {
+                return hash_equals($code, $this->recovery_code) ? $code : null;
+            });
 
-            event(new TwoFactorAuthenticationChallenged($user));
+            if (! $validCode) {
+                event(new TwoFactorAuthenticationFailed($user));
+                $this->addError('recovery_code', __('The provided two factor recovery code was invalid.'));
 
-            return $this->redirectRoute('two-factor.login', navigate: true);
+                return;
+            }
+
+            $user->replaceRecoveryCode($validCode);
+        } else {
+            $secret = Fortify::currentEncrypter()->decrypt($user->two_factor_secret);
+            $isValid = app(TwoFactorAuthenticationProvider::class)->verify($secret, $this->code);
+
+            if (! $isValid) {
+                event(new TwoFactorAuthenticationFailed($user));
+                $this->addError('code', __('The provided two factor authentication code was invalid.'));
+
+                return;
+            }
         }
 
-        Auth::login($user, $this->remember);
+        event(new ValidTwoFactorAuthenticationCodeProvided($user));
 
+        $remember = (bool) session()->pull('login.remember', false);
+        session()->forget('login.id');
+
+        Auth::guard(config('fortify.guard', 'web'))->login($user, $remember);
         session()->regenerate();
 
-        return $this->redirectIntended(default: route('admin.dashboard'), navigate: true);
+        $this->redirectIntended(default: route('admin.dashboard'), navigate: true);
     }
 };
 ?>
@@ -112,99 +127,70 @@ new class extends Component {
 
             <!-- Form -->
             <div class="flex-1 flex items-center justify-center overflow-hidden">
-                @if ($type == 'reset-password')
-                    <div wire:transition class="w-full">
-                        <livewire:pages::auth.change-password />
-                    </div>
-                @else
-                    @if ($forgot_password)
-                        <div wire:transition class="w-full">
-                            <livewire:pages::auth.forgot-password />
-                        </div>
-                    @else
-                        <div wire:transition class="w-full">
-                            <div class="mx-auto w-full max-w-sm mt-10">
-                                <h1 class="font-display text-3xl font-medium tracking-tight text-ink">Sign in to your
-                                    workspace</h1>
-                                <p class="mt-2 text-xs leading-relaxed text-mist">People, time, and pay for your
-                                    organization — all in
-                                    one place.</p>
+                <div wire:transition class="w-full">
+                    <div class="mx-auto w-full max-w-sm mt-10">
+                        <h1 class="font-display text-3xl font-medium tracking-tight text-ink">Two-factor
+                            authentication</h1>
+                        <p class="mt-2 text-xs leading-relaxed text-mist">
+                            @if ($recovery)
+                                Enter one of your recovery codes to continue.
+                            @else
+                                Enter the 6-digit code from your authenticator app to continue.
+                            @endif
+                        </p>
 
-                                <form wire:submit="login" class="mt-6 space-y-5">
+                        <form wire:submit="challenge" class="mt-6 space-y-5">
 
-                                    @include('components.messages')
+                            @include('components.messages')
 
-                                    <div>
-                                        <label for="email" class="block text-xs font-medium text-mist mb-1.5">Work
-                                            email</label>
-                                        <input id="email" type="email" wire:model="email"
-                                            placeholder="you@company.com"
-                                            class="w-full rounded-lg border border-line bg-surface px-3.5 py-2.5 text-sm text-ink placeholder-mist/60 outline-none focus:border-amber focus:ring-1 focus:ring-amber transition" />
-                                    </div>
+                            @if ($recovery)
+                                <div>
+                                    <label for="recovery_code"
+                                        class="block text-xs font-medium text-mist mb-1.5">Recovery code</label>
+                                    <input id="recovery_code" type="text" wire:model="recovery_code"
+                                        placeholder="xxxx-xxxx-xxxx" autocomplete="one-time-code"
+                                        class="w-full rounded-lg border border-line bg-surface px-3.5 py-2.5 text-sm text-ink placeholder-mist/60 outline-none focus:border-amber focus:ring-1 focus:ring-amber transition" />
+                                    @error('recovery_code')
+                                        <p class="mt-1.5 text-xs flex items-center gap-1" style="color:#ef4444;">
+                                            <i class="fa-solid fa-circle-exclamation text-[10px]"></i>
+                                            {{ $message }}
+                                        </p>
+                                    @enderror
+                                </div>
+                            @else
+                                <div>
+                                    <label for="code"
+                                        class="block text-xs font-medium text-mist mb-1.5">Authentication code</label>
+                                    <input id="code" type="text" wire:model="code" placeholder="000000"
+                                        inputmode="numeric" autocomplete="one-time-code" maxlength="6"
+                                        class="w-full rounded-lg border border-line bg-surface px-3.5 py-2.5 text-sm text-ink placeholder-mist/60 outline-none focus:border-amber focus:ring-1 focus:ring-amber transition tracking-[0.3em] text-center font-mono" />
+                                    @error('code')
+                                        <p class="mt-1.5 text-xs flex items-center gap-1" style="color:#ef4444;">
+                                            <i class="fa-solid fa-circle-exclamation text-[10px]"></i>
+                                            {{ $message }}
+                                        </p>
+                                    @enderror
+                                </div>
+                            @endif
 
-                                    <div>
-                                        <div class="flex items-center justify-between mb-1.5">
-                                            <label for="password"
-                                                class="block text-xs font-medium text-mist">Password</label>
-                                            <button type="button" wire:click="forgotPassword"
-                                                class="text-xs text-amber-deep hover:text-ink transition">Forgot
-                                                password?</button>
-                                        </div>
-                                        <div class="relative">
-                                            <input id="confirm-password" type="password" wire:model="password"
-                                                placeholder="••••••••••"
-                                                class="w-full rounded-lg border border-line bg-surface px-3.5 py-2.5 text-sm text-ink placeholder-mist/60 outline-none focus:border-amber focus:ring-1 focus:ring-amber transition" />
-                                            <button type="button"
-                                                wire:click="$js.togglePasswordField('confirm-password', $event.currentTarget)"
-                                                class="absolute right-3 top-1/2 -translate-y-1/2 text-mist hover:text-ink transition">
-                                                <i class="fa-solid fa-eye-slash text-xs"></i>
-                                            </button>
-                                        </div>
-                                        @error('password')
-                                            <p class="mt-1.5 text-xs flex items-center gap-1" style="color:#ef4444;">
-                                                <i class="fa-solid fa-circle-exclamation text-[10px]"></i>
-                                                {{ $message }}
-                                            </p>
-                                        @enderror
-                                    </div>
+                            <button type="submit" wire:loading.attr="disabled" wire:loading.class="opacity-60"
+                                class="w-full rounded-lg bg-amber py-2.5 text-sm font-semibold text-on-amber hover:brightness-95 transition disabled:cursor-wait">
+                                <span wire:loading.remove>Verify</span>
+                                <span wire:loading>Verifying…</span>
+                            </button>
 
-                                    <label class="flex items-center gap-2 text-xs text-mist select-none">
-                                        <input type="checkbox" wire:model="remember"
-                                            class="h-3.5 w-3.5 rounded border-line bg-surface accent-amber" />
-                                        Keep me signed in on this device
-                                    </label>
-
-                                    <button type="submit" wire:loading.attr="disabled" wire:loading.class="opacity-60"
-                                        class="w-full rounded-lg bg-amber py-2.5 text-sm font-semibold text-on-amber hover:brightness-95 transition disabled:cursor-wait">
-                                        <span wire:loading.remove>Sign in</span>
-                                        <span wire:loading>Signing in…</span>
-                                    </button>
-
-                                    <div class="flex items-center gap-3 py-1">
-                                        <div class="h-px flex-1 bg-line"></div>
-                                        <span class="text-xs text-mist font-mono">or continue with</span>
-                                        <div class="h-px flex-1 bg-line"></div>
-                                    </div>
-
-                                    <button type="button"
-                                        class="w-full flex items-center justify-center gap-2.5 rounded-lg border border-line bg-surface py-2.5 text-sm font-medium text-ink hover:border-mist transition">
-                                        <svg width="16" height="16" viewBox="0 0 48 48">
-                                            <path fill="#EA4335"
-                                                d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.9 2.4 30.4 0 24 0 14.6 0 6.4 5.4 2.5 13.2l7.9 6.1C12.3 13.1 17.6 9.5 24 9.5z" />
-                                            <path fill="#4285F4"
-                                                d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.5 3-2.2 5.5-4.7 7.2l7.4 5.7c4.3-4 6.8-9.9 6.8-17.4z" />
-                                            <path fill="#FBBC05"
-                                                d="M10.4 19.3A14.5 14.5 0 0 0 9.5 24c0 1.6.3 3.2.9 4.7l-7.9 6.1A24 24 0 0 1 0 24c0-3.9.9-7.5 2.5-10.7l7.9 6z" />
-                                            <path fill="#34A853"
-                                                d="M24 48c6.4 0 11.9-2.1 15.9-5.8l-7.4-5.7c-2.1 1.4-4.8 2.3-8.5 2.3-6.4 0-11.7-3.6-13.6-8.8l-7.9 6.1C6.4 42.6 14.6 48 24 48z" />
-                                        </svg>
-                                        Continue with Google
-                                    </button>
-                                </form>
+                            <div class="flex items-center justify-between text-xs">
+                                <button type="button" wire:click="toggleRecovery"
+                                    class="text-amber-deep hover:text-ink transition">
+                                    {{ $recovery ? 'Use an authentication code' : 'Use a recovery code' }}
+                                </button>
+                                <a href="{{ route('login') }}" wire:navigate class="text-mist hover:text-ink transition">
+                                    Back to sign in
+                                </a>
                             </div>
-                        </div>
-                    @endif
-                @endif
+                        </form>
+                    </div>
+                </div>
             </div>
 
             <!-- Footer -->
@@ -307,7 +293,6 @@ new class extends Component {
 
 <script>
     this.$js.togglePasswordField = (inputId, btn) => {
-        console.log(inputId);
         var input = document.getElementById(inputId);
         var icon = btn.querySelector('i');
         var isPassword = input.type === 'password';

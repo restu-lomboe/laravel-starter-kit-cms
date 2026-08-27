@@ -1,16 +1,9 @@
 {
     "agents": [
-        "copilot"
+        "opencode"
     ],
-    "cloud": false,
+    "guidelines": true,
     "packages": [
         "spatie/laravel-permission"
-    ],
-    "skills": [
-        "infer-conventions",
-        "laravel-best-practices",
-        "livewire-development",
-        "tailwindcss-development",
-        "laravel-permission-development"
     ]
 }
