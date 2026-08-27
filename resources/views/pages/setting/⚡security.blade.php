@@ -8,7 +8,9 @@ use Laravel\Fortify\Actions\DisableTwoFactorAuthentication;
 use Laravel\Fortify\Actions\EnableTwoFactorAuthentication;
 use Laravel\Fortify\Actions\GenerateNewRecoveryCodes;
 use Laravel\Fortify\Fortify;
+use Laravel\Passkeys\Passkey;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\On;
 use Livewire\Component;
 
 new class extends Component {
@@ -20,6 +22,8 @@ new class extends Component {
     public bool $showEnableForm = false;
     public bool $showDisableForm = false;
     public bool $showRecoveryCodes = false;
+
+    public string $newPasskeyName = '';
 
     public function updatePassword()
     {
@@ -175,6 +179,63 @@ new class extends Component {
         unset($this->recoveryCodes);
 
         LivewireAlert::title('Recovery codes regenerated')
+            ->success()
+            ->toast()
+            ->position('center')
+            ->timer(2500)
+            ->timerProgressBar()
+            ->withOptions([
+                'width' => '30%',
+            ])
+            ->show();
+    }
+
+    #[Computed]
+    public function passkeys(): \Illuminate\Database\Eloquent\Collection
+    {
+        return auth()->user()->passkeys()->latest()->get();
+    }
+
+    #[On('passkey-registered')]
+    public function refreshPasskeys(): void
+    {
+        unset($this->passkeys);
+
+        LivewireAlert::title('Passkey added successfully')
+            ->success()
+            ->toast()
+            ->position('center')
+            ->timer(2500)
+            ->timerProgressBar()
+            ->withOptions([
+                'width' => '30%',
+            ])
+            ->show();
+    }
+
+    public function deletePasskey(int $passkeyId): void
+    {
+        $passkey = Passkey::where('id', $passkeyId)->where('user_id', auth()->id())->first();
+
+        if (! $passkey) {
+            LivewireAlert::title('Passkey not found')
+                ->error()
+                ->toast()
+                ->position('center')
+                ->timer(2500)
+                ->timerProgressBar()
+                ->withOptions([
+                    'width' => '30%',
+                ])
+                ->show();
+
+            return;
+        }
+
+        $passkey->delete();
+        unset($this->passkeys);
+
+        LivewireAlert::title('Passkey removed')
             ->success()
             ->toast()
             ->position('center')
@@ -456,21 +517,61 @@ new class extends Component {
             <p class="text-sm font-semibold text-ink">Passkeys</p>
             <p class="text-xs text-mist mt-0.5">Manage your passkeys for passwordless sign-in</p>
 
-            <div
-                class="mt-4 max-w-lg rounded-xl border border-line bg-surface px-6 py-8 flex flex-col items-center text-center">
-                <span class="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-2 text-mist mb-3">
-                    <i class="fa-solid fa-key"></i>
-                </span>
-                <p class="text-sm font-medium text-ink">No passkeys yet</p>
-                <p class="text-xs text-mist mt-1">Add a passkey to sign in without a password</p>
-            </div>
+            @if ($this->passkeys->isEmpty())
+                <div
+                    class="mt-4 max-w-lg rounded-xl border border-line bg-surface px-6 py-8 flex flex-col items-center text-center">
+                    <span class="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-2 text-mist mb-3">
+                        <i class="fa-solid fa-key"></i>
+                    </span>
+                    <p class="text-sm font-medium text-ink">No passkeys yet</p>
+                    <p class="text-xs text-mist mt-1">Add a passkey to sign in without a password</p>
+                </div>
+            @else
+                <div class="mt-4 max-w-lg space-y-2">
+                    @foreach ($this->passkeys as $passkey)
+                        <div class="flex items-center justify-between rounded-xl border border-line bg-surface px-4 py-3">
+                            <div class="flex items-center gap-3 min-w-0">
+                                <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-surface-2 text-mist shrink-0">
+                                    <i class="fa-solid fa-key text-xs"></i>
+                                </span>
+                                <div class="min-w-0">
+                                    <p class="text-sm font-medium text-ink truncate">{{ $passkey->name }}</p>
+                                    <p class="text-xs text-mist truncate">
+                                        {{ $passkey->authenticator ?? 'Passkey' }}
+                                        · {{ $passkey->created_at->format('d M Y') }}
+                                        @if ($passkey->last_used_at)
+                                            · last used {{ $passkey->last_used_at->diffForHumans() }}
+                                        @endif
+                                    </p>
+                                </div>
+                            </div>
+                            <button type="button" wire:click="deletePasskey({{ $passkey->id }})"
+                                wire:confirm="Remove this passkey? You can always add it again."
+                                class="ml-3 shrink-0 inline-flex items-center gap-1.5 text-xs font-medium hover:underline transition"
+                                style="color:#ef4444;">
+                                <i class="fa-solid fa-trash-can text-[10px]"></i>
+                                Remove
+                            </button>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
 
-            <button type="button"
-                class="mt-4 flex items-center gap-2 rounded-lg bg-ink px-4 py-2.5 text-sm font-semibold hover:brightness-110 transition"
-                style="color: var(--color-card);">
-                <i class="fa-solid fa-plus text-xs"></i>
-                Add passkey
-            </button>
+            <div class="mt-4 max-w-lg rounded-xl border border-line bg-surface p-4">
+                <label for="new-passkey-name" class="block text-xs font-medium text-mist mb-1.5">New passkey name</label>
+                <div class="flex gap-2">
+                    <input id="new-passkey-name" type="text" wire:model="newPasskeyName" placeholder="My MacBook"
+                        class="w-full rounded-lg border border-line bg-surface px-3.5 py-2.5 text-sm text-ink placeholder-mist/60 outline-none focus:border-amber focus:ring-1 focus:ring-amber transition" />
+                    <button type="button" id="btn-add-passkey" onclick="window.registerPasskey()"
+                        class="shrink-0 inline-flex items-center gap-2 rounded-lg bg-ink px-4 py-2.5 text-sm font-semibold hover:brightness-110 transition disabled:opacity-50 disabled:cursor-wait"
+                        style="color: var(--color-card);">
+                        <i class="fa-solid fa-plus text-xs"></i>
+                        Add passkey
+                    </button>
+                </div>
+                <p class="text-xs text-mist mt-2">You will be prompted by your browser to create a passkey. Works with Touch ID, Face ID, Windows Hello, etc.</p>
+                <p id="passkey-error" class="hidden mt-2 text-xs flex items-center gap-1" style="color:#ef4444;"></p>
+            </div>
         </div>
     </div>
 </div>
@@ -485,4 +586,40 @@ new class extends Component {
         icon.classList.toggle('fa-eye-slash', !isPassword);
         icon.classList.toggle('fa-eye', isPassword);
     }
+</script>
+
+<script>
+    window.registerPasskey = async () => {
+        const input = document.getElementById('new-passkey-name');
+        const errorEl = document.getElementById('passkey-error');
+        const btn = document.getElementById('btn-add-passkey');
+        if (!input || !btn) return;
+        errorEl.classList.add('hidden');
+        errorEl.textContent = '';
+        const name = input.value.trim() || input.placeholder || 'Passkey';
+        const Passkeys = window.Passkeys;
+        if (!Passkeys) {
+            errorEl.textContent = 'Passkeys not ready. Please refresh the page.';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+        btn.disabled = true;
+        const original = btn.innerHTML;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-xs"></i> Creating…';
+        try {
+            await Passkeys.register({ name });
+            if (window.Livewire) {
+                window.Livewire.dispatch('passkey-registered');
+            }
+            input.value = '';
+            input.dispatchEvent(new Event('input'));
+        } catch (e) {
+            const msg = e?.message || 'Failed to create passkey. Make sure your device supports WebAuthn and try again.';
+            errorEl.textContent = msg;
+            errorEl.classList.remove('hidden');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = original;
+        }
+    };
 </script>

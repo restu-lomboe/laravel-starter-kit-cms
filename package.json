@@ -19,6 +19,7 @@
         "@laravel/multiplex": "^0.4.1"
     },
     "dependencies": {
+        "@laravel/passkeys": "^0.4.0",
         "sweetalert2": "^11.26.25"
     }
 }

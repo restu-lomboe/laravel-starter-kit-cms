@@ -1,7 +1,9 @@
 import "./dashboard";
 import Swal from "sweetalert2";
+import { Passkeys } from "@laravel/passkeys";
 
 window.Swal = Swal;
+window.Passkeys = Passkeys;
 
 // Listen for Livewire page transitions
 document.addEventListener("livewire:navigating", () => {

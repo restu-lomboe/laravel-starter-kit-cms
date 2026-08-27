@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\BypassPasswordConfirmForPasskeys;
 use App\Http\Middleware\CheckPermission;
 use App\Http\Middleware\EnsureAuthenticated;
 use Illuminate\Foundation\Application;
@@ -17,6 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'auth.login' => EnsureAuthenticated::class,
             'permission' => CheckPermission::class,
+            'password.confirm' => BypassPasswordConfirmForPasskeys::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

@@ -200,6 +200,14 @@ new class extends Component {
                                         </svg>
                                         Continue with Google
                                     </button>
+
+                                    <button type="button" onclick="window.loginWithPasskey()" id="btn-passkey-login"
+                                        data-redirect="{{ config('passkeys.redirect') }}"
+                                        class="w-full flex items-center justify-center gap-2.5 rounded-lg border border-line bg-surface py-2.5 text-sm font-medium text-ink hover:border-mist transition">
+                                        <i class="fa-solid fa-key text-xs"></i>
+                                        Sign in with passkey
+                                    </button>
+                                    <p id="passkey-login-error" class="hidden mt-1.5 text-xs flex items-center gap-1 text-center" style="color:#ef4444;"></p>
                                 </form>
                             </div>
                         </div>
@@ -307,7 +315,6 @@ new class extends Component {
 
 <script>
     this.$js.togglePasswordField = (inputId, btn) => {
-        console.log(inputId);
         var input = document.getElementById(inputId);
         var icon = btn.querySelector('i');
         var isPassword = input.type === 'password';
@@ -315,4 +322,33 @@ new class extends Component {
         icon.classList.toggle('fa-eye-slash', !isPassword);
         icon.classList.toggle('fa-eye', isPassword);
     }
+
+    window.loginWithPasskey = async () => {
+        const btn = document.getElementById('btn-passkey-login');
+        const errorEl = document.getElementById('passkey-login-error');
+        if (!btn) return;
+        errorEl.classList.add('hidden');
+        errorEl.textContent = '';
+        const Passkeys = window.Passkeys;
+        if (!Passkeys) {
+            errorEl.textContent = 'Passkeys not ready. Please refresh the page.';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+        const original = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-xs"></i> Verifying…';
+        try {
+            await Passkeys.verify();
+            const redirect = btn.dataset.redirect || '/admin/dashboard';
+            window.location.href = redirect;
+        } catch (e) {
+            const msg = e?.message || 'Passkey verification failed. Try again or use your password.';
+            errorEl.textContent = msg;
+            errorEl.classList.remove('hidden');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = original;
+        }
+    };
 </script>
