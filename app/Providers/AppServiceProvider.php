@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -26,6 +28,19 @@ class AppServiceProvider extends ServiceProvider
     {
         Gate::before(function ($user, $ability) {
             return $user->hasRole('Super Admin') ? true : null;
+        });
+
+        ResetPassword::createUrlUsing(function ($notifiable, string $token) {
+            return url('/?type=reset-password&token='.$token.'&email='.urlencode($notifiable->getEmailForPasswordReset()));
+        });
+
+        ResetPassword::toMailUsing(function ($notifiable, string $token) {
+            $email = $notifiable->getEmailForPasswordReset();
+            $url = url('/?type=reset-password&token='.$token.'&email='.urlencode($email));
+
+            return (new MailMessage)
+                ->subject('Reset your password — '.config('app.name'))
+                ->markdown('emails.reset-password', ['url' => $url, 'email' => $email]);
         });
 
         // Fallback: strip "password.confirm" from passkey management routes if the
