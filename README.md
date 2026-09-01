@@ -1,36 +1,37 @@
-# Anchor HR — Laravel Starter Kit
+# CMS — Laravel Starter Kit
 
-> HRMS portal starter built on **Laravel 13 + Livewire 4 (SFC) + Fortify + Spatie Permission + Tailwind 4**. Auth is fully configurable (3 defaults + 2 optionals), RBAC-ready, and ships with 2FA, Passkeys, Magic Link, OTP, and Google SSO.
+> CMS portal starter built on **Laravel 13 + Livewire 4 (SFC) + Fortify + Spatie Permission + Tailwind 4**. Auth is fully configurable (3 defaults + 2 optionals), RBAC-ready, and ships with 2FA, Passkeys, Magic Link, OTP, and Google SSO.
 
 <p align="center"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="360" alt="Laravel Logo"></p>
 
 ## Tech Stack
 
-| Layer | Package / Version |
-|---|---|
-| PHP | `^8.3` |
-| Framework | `laravel/framework ^13.17` |
-| Frontend | `livewire/livewire ^4.4` (SFC `pages::` + `wire:navigate`), `tailwindcss ^4.0` + `@tailwindcss/vite`, `vite ^8.0`, `sweetalert2 ^11` |
-| Auth | `laravel/fortify ^1.38` (login, 2FA TOTP, password confirm), `laravel/socialite ^5.30` (Google SSO), `laravel/passkeys ^0.4` (`@laravel/passkeys` npm) |
-| RBAC | `spatie/laravel-permission ^8.3` |
-| Table | `developerawam/livewire-datatable ^2.3` + `jantinnerezo/livewire-alert ^4.2` |
-| Tooling | `laravel/pint ^1.27`, `laravel/boost ^2.5`, `phpunit ^12.5` |
+| Layer     | Package / Version                                                                                                                                      |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| PHP       | `^8.3`                                                                                                                                                 |
+| Framework | `laravel/framework ^13.17`                                                                                                                             |
+| Frontend  | `livewire/livewire ^4.4` (SFC `pages::` + `wire:navigate`), `tailwindcss ^4.0` + `@tailwindcss/vite`, `vite ^8.0`, `sweetalert2 ^11`                   |
+| Auth      | `laravel/fortify ^1.38` (login, 2FA TOTP, password confirm), `laravel/socialite ^5.30` (Google SSO), `laravel/passkeys ^0.4` (`@laravel/passkeys` npm) |
+| RBAC      | `spatie/laravel-permission ^8.3`                                                                                                                       |
+| Table     | `developerawam/livewire-datatable ^2.3` + `jantinnerezo/livewire-alert ^4.2`                                                                           |
+| Tooling   | `laravel/pint ^1.27`, `laravel/boost ^2.5`, `phpunit ^12.5`                                                                                            |
 
 ## Features
 
 ### Authentication — `config/fortify.php:164` + `config/passkeys.php:1` + `config/services.php:31`
 
-| Method | Type | Status | Where |
-|---|---|---|---|
-| **Email & Password** | Default (radio) | ✅ working | `resources/views/pages/auth/⚡login.blade.php:11` |
-| **Magic Link** | Default (radio) | ✅ full — token `magic_login_tokens` 15m, `MagicLoginMail` markdown, `GET /auth/magic-link/verify` `routes/web.php:16` | `⚡login.blade.php:358` |
-| **OTP via Email** | Default (radio) | ✅ full — 6-digit `email_otp_tokens` 10m, `EmailOtpMail` markdown, numeric-only `wire:model.live` + `regex:/^[0-9]{6}$/` `⚡login.blade.php:221` | `⚡login.blade.php:419` |
-| **Passkey** | Optional toggle | ✅ WebAuthn via `laravel/passkeys` + `@laravel/passkeys` `resources/js/app.js:3` | `⚡login.blade.php:204` + `pages/setting/⚡security.blade.php:515` |
-| **Google SSO** | Optional toggle | ✅ Socialite `app/Http/Controllers/Auth/GoogleAuthController.php:1` + `GET /auth/google/{redirect,callback}` `routes/web.php:16` | `⚡login.blade.php:204` + `⚡authentication-page.blade.php:272` |
+| Method               | Type            | Status                                                                                                                                           | Where                                                              |
+| -------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| **Email & Password** | Default (radio) | ✅ working                                                                                                                                       | `resources/views/pages/auth/⚡login.blade.php:11`                  |
+| **Magic Link**       | Default (radio) | ✅ full — token `magic_login_tokens` 15m, `MagicLoginMail` markdown, `GET /auth/magic-link/verify` `routes/web.php:16`                           | `⚡login.blade.php:358`                                            |
+| **OTP via Email**    | Default (radio) | ✅ full — 6-digit `email_otp_tokens` 10m, `EmailOtpMail` markdown, numeric-only `wire:model.live` + `regex:/^[0-9]{6}$/` `⚡login.blade.php:221` | `⚡login.blade.php:419`                                            |
+| **Passkey**          | Optional toggle | ✅ WebAuthn via `laravel/passkeys` + `@laravel/passkeys` `resources/js/app.js:3`                                                                 | `⚡login.blade.php:204` + `pages/setting/⚡security.blade.php:515` |
+| **Google SSO**       | Optional toggle | ✅ Socialite `app/Http/Controllers/Auth/GoogleAuthController.php:1` + `GET /auth/google/{redirect,callback}` `routes/web.php:16`                 | `⚡login.blade.php:204` + `⚡authentication-page.blade.php:272`    |
 
-*Only one default can be active* — stored as `authentication_settings.default_method` `enum('email','magic_link','otp')`. Optional toggles are independent. Preview on `pages/setting/⚡authentication-page.blade.php:345` reflects live `defaultMethod`/`passkeyEnabled`/`googleSsoEnabled`.
+_Only one default can be active_ — stored as `authentication_settings.default_method` `enum('email','magic_link','otp')`. Optional toggles are independent. Preview on `pages/setting/⚡authentication-page.blade.php:345` reflects live `defaultMethod`/`passkeyEnabled`/`googleSsoEnabled`.
 
 Additional auth:
+
 - **Two-Factor (TOTP)** on `pages/setting/⚡security.blade.php:1` — `Enable/Confirm/Disable/Regenerate` via Fortify actions, QR `twoFactorQrCodeSvg()`, `TwoFactorAuthenticatable` `app/Models/User.php:22`. Login challenge `⚡two-factor-challenge.blade.php:1` + `GET /two-factor-challenge` `routes/web.php:6` (checks `session('login.id')`, `TwoFactorAuthenticationProvider::verify`, recovery codes).
 - **Forgot / Reset Password** `⚡forgot-password.blade.php:5` (`Password::sendResetLink`) + `⚡change-password.blade.php:9` (`Password::reset`) with custom URL `AppServiceProvider.php:32` → `/?type=reset-password&token=&email=` and branded `emails/reset-password.blade.php` via `ResetPassword::toMailUsing` `AppServiceProvider.php:32`.
 - **Passkey management** bypasses `password.confirm` via `BypassPasswordConfirmForPasskeys` `app/Http/Middleware/BypassPasswordConfirmForPasskeys.php:1` aliased in `bootstrap/app.php:17` + `AppServiceProvider.php:13` config override.
@@ -143,14 +144,14 @@ Factories: `UserFactory`, `AuthenticationSettingFactory` (extend as needed). Liv
 
 ## Routes
 
-| Method | URI | Name | Middleware |
-|---|---|---|---|
-| `GET` | `/` | `login` | `guest` (Livewire) |
-| `GET` | `/two-factor-challenge` | `two-factor.login` | `guest` |
-| `GET` | `/auth/magic-link/verify?token=&email=` | `auth.magic.verify` | `guest` |
-| `GET` | `/auth/google/redirect` | `auth.google.redirect` | `guest` |
-| `GET` | `/auth/google/callback` | `auth.google.callback` | `guest` |
-| `GET` | `/admin/*` | `admin.*` | `auth.login` + `permission:*` |
+| Method | URI                                     | Name                   | Middleware                    |
+| ------ | --------------------------------------- | ---------------------- | ----------------------------- |
+| `GET`  | `/`                                     | `login`                | `guest` (Livewire)            |
+| `GET`  | `/two-factor-challenge`                 | `two-factor.login`     | `guest`                       |
+| `GET`  | `/auth/magic-link/verify?token=&email=` | `auth.magic.verify`    | `guest`                       |
+| `GET`  | `/auth/google/redirect`                 | `auth.google.redirect` | `guest`                       |
+| `GET`  | `/auth/google/callback`                 | `auth.google.callback` | `guest`                       |
+| `GET`  | `/admin/*`                              | `admin.*`              | `auth.login` + `permission:*` |
 
 ## Deployment
 
