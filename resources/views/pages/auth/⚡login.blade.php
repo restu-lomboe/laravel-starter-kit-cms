@@ -1,8 +1,14 @@
 <?php
 
+use App\Mail\EmailOtpMail;
+use App\Mail\MagicLoginMail;
+use App\Models\AuthenticationSetting;
+use App\Models\EmailOtpToken;
+use App\Models\MagicLoginToken;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Laravel\Fortify\Events\TwoFactorAuthenticationChallenged;
 use Livewire\Attributes\On;
@@ -15,12 +21,38 @@ new class extends Component {
     public $password = '';
     public $remember = false;
 
+    // dynamic settings
+    public string $defaultMethod = 'email';
+    public bool $passkeyEnabled = false;
+    public bool $googleSsoEnabled = true;
+
+    // magic link
+    public string $magicEmail = '';
+    public bool $magicSent = false;
+
+    // otp
+    public string $otpEmail = '';
+    public string $otpCode = '';
+    public bool $otpSent = false;
+
     public function mount()
     {
         $this->type = request()->query('type');
 
         if (Auth::check()) {
             $this->redirectRoute('admin.dashboard');
+        }
+
+        try {
+            $settings = AuthenticationSetting::current();
+            $this->defaultMethod = $settings->default_method;
+            $this->passkeyEnabled = (bool) $settings->passkey_enabled;
+            $this->googleSsoEnabled = (bool) $settings->google_sso_enabled;
+        } catch (\Throwable $e) {
+            // table may not exist yet (before migration) — fall back to defaults
+            $this->defaultMethod = 'email';
+            $this->passkeyEnabled = false;
+            $this->googleSsoEnabled = true;
         }
     }
 
@@ -71,6 +103,134 @@ new class extends Component {
         session()->regenerate();
 
         return $this->redirectIntended(default: route('admin.dashboard'), navigate: true);
+    }
+
+    public function sendMagicLink(): void
+    {
+        $this->validate(['magicEmail' => ['required', 'email']]);
+
+        $email = Str::lower(trim($this->magicEmail));
+        $user = User::whereRaw('LOWER(email) = ?', [$email])->first();
+
+        // Always show success to prevent enumeration, but only create token if user exists
+        if ($user) {
+            MagicLoginToken::where('email', $email)->delete();
+
+            $plainToken = Str::random(64);
+            $hashed = hash('sha256', $plainToken);
+
+            $token = MagicLoginToken::create([
+                'email' => $email,
+                'token' => $hashed,
+                'expires_at' => now()->addMinutes(15),
+            ]);
+
+            $url = route('auth.magic.verify', ['token' => $plainToken, 'email' => $email]);
+
+            try {
+                Mail::to($email)->send(new MagicLoginMail($url, '15'));
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
+
+        $this->magicSent = true;
+        session()->flash('success', 'If an account exists for that email, a magic link has been sent.');
+    }
+
+    public function sendOtp(): void
+    {
+        $this->validate(['otpEmail' => ['required', 'email']]);
+
+        $email = Str::lower(trim($this->otpEmail));
+        $user = User::whereRaw('LOWER(email) = ?', [$email])->first();
+
+        if ($user) {
+            EmailOtpToken::where('email', $email)->delete();
+
+            $code = (string) random_int(100000, 999999);
+            $hashed = Hash::make($code);
+
+            EmailOtpToken::create([
+                'email' => $email,
+                'token' => $hashed,
+                'expires_at' => now()->addMinutes(10),
+            ]);
+
+            try {
+                Mail::to($email)->send(new EmailOtpMail($code, '10'));
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
+
+        $this->otpSent = true;
+        session()->flash('success', 'If an account exists for that email, a code has been sent.');
+    }
+
+    public function updatedOtpCode($value): void
+    {
+        // Sanitize: only digits, max 6 — keeps Livewire state clean even if user pastes text
+        $clean = preg_replace('/[^0-9]/', '', (string) $value);
+        $clean = substr($clean, 0, 6);
+        if ($clean !== $value) {
+            $this->otpCode = $clean;
+        }
+    }
+
+    public function verifyOtp(): void
+    {
+        $this->validate([
+            'otpEmail' => ['required', 'email'],
+            'otpCode' => ['required', 'string', 'size:6', 'regex:/^[0-9]{6}$/'],
+        ], [
+            'otpCode.regex' => 'The code must contain only numbers.',
+            'otpCode.size' => 'The code must be 6 digits.',
+        ]);
+
+        $email = Str::lower(trim($this->otpEmail));
+        $record = EmailOtpToken::where('email', $email)->latest()->first();
+
+        if (! $record || $record->isExpired()) {
+            $this->addError('otpCode', 'The code is invalid or has expired.');
+            return;
+        }
+
+        if ($record->attempts >= 5) {
+            $this->addError('otpCode', 'Too many attempts. Please request a new code.');
+            return;
+        }
+
+        if (! Hash::check($this->otpCode, $record->token)) {
+            $record->increment('attempts');
+            $this->addError('otpCode', 'The provided code is invalid.');
+            return;
+        }
+
+        $user = User::whereRaw('LOWER(email) = ?', [$email])->first();
+
+        if (! $user) {
+            $this->addError('otpCode', 'User not found.');
+            return;
+        }
+
+        $record->delete();
+
+        if ($user->hasEnabledTwoFactorAuthentication()) {
+            session()->put([
+                'login.id' => $user->getKey(),
+                'login.remember' => $this->remember,
+            ]);
+            event(new TwoFactorAuthenticationChallenged($user));
+
+            $this->redirectRoute('two-factor.login', navigate: true);
+            return;
+        }
+
+        Auth::login($user, $this->remember);
+        session()->regenerate();
+
+        $this->redirectIntended(default: route('admin.dashboard'), navigate: true);
     }
 };
 ?>
@@ -130,85 +290,220 @@ new class extends Component {
                                     organization — all in
                                     one place.</p>
 
-                                <form wire:submit="login" class="mt-6 space-y-5">
+                                @if ($defaultMethod === 'email')
+                                    <form wire:submit="login" class="mt-6 space-y-5">
+                                        @include('components.messages')
 
-                                    @include('components.messages')
-
-                                    <div>
-                                        <label for="email" class="block text-xs font-medium text-mist mb-1.5">Work
-                                            email</label>
-                                        <input id="email" type="email" wire:model="email"
-                                            placeholder="you@company.com"
-                                            class="w-full rounded-lg border border-line bg-surface px-3.5 py-2.5 text-sm text-ink placeholder-mist/60 outline-none focus:border-amber focus:ring-1 focus:ring-amber transition" />
-                                    </div>
-
-                                    <div>
-                                        <div class="flex items-center justify-between mb-1.5">
-                                            <label for="password"
-                                                class="block text-xs font-medium text-mist">Password</label>
-                                            <button type="button" wire:click="forgotPassword"
-                                                class="text-xs text-amber-deep hover:text-ink transition">Forgot
-                                                password?</button>
-                                        </div>
-                                        <div class="relative">
-                                            <input id="confirm-password" type="password" wire:model="password"
-                                                placeholder="••••••••••"
+                                        <div>
+                                            <label for="email" class="block text-xs font-medium text-mist mb-1.5">Work email</label>
+                                            <input id="email" type="email" wire:model="email" placeholder="you@company.com"
                                                 class="w-full rounded-lg border border-line bg-surface px-3.5 py-2.5 text-sm text-ink placeholder-mist/60 outline-none focus:border-amber focus:ring-1 focus:ring-amber transition" />
-                                            <button type="button"
-                                                wire:click="$js.togglePasswordField('confirm-password', $event.currentTarget)"
-                                                class="absolute right-3 top-1/2 -translate-y-1/2 text-mist hover:text-ink transition">
-                                                <i class="fa-solid fa-eye-slash text-xs"></i>
-                                            </button>
+                                            @error('email')
+                                                <p class="mt-1.5 text-xs flex items-center gap-1" style="color:#ef4444;">
+                                                    <i class="fa-solid fa-circle-exclamation text-[10px]"></i>
+                                                    {{ $message }}
+                                                </p>
+                                            @enderror
                                         </div>
-                                        @error('password')
-                                            <p class="mt-1.5 text-xs flex items-center gap-1" style="color:#ef4444;">
-                                                <i class="fa-solid fa-circle-exclamation text-[10px]"></i>
-                                                {{ $message }}
-                                            </p>
-                                        @enderror
-                                    </div>
 
-                                    <label class="flex items-center gap-2 text-xs text-mist select-none">
-                                        <input type="checkbox" wire:model="remember"
-                                            class="h-3.5 w-3.5 rounded border-line bg-surface accent-amber" />
-                                        Keep me signed in on this device
-                                    </label>
+                                        <div>
+                                            <div class="flex items-center justify-between mb-1.5">
+                                                <label for="password" class="block text-xs font-medium text-mist">Password</label>
+                                                <button type="button" wire:click="forgotPassword" class="text-xs text-amber-deep hover:text-ink transition">Forgot password?</button>
+                                            </div>
+                                            <div class="relative">
+                                                <input id="confirm-password" type="password" wire:model="password" placeholder="••••••••••"
+                                                    class="w-full rounded-lg border border-line bg-surface px-3.5 py-2.5 text-sm text-ink placeholder-mist/60 outline-none focus:border-amber focus:ring-1 focus:ring-amber transition" />
+                                                <button type="button" wire:click="$js.togglePasswordField('confirm-password', $event.currentTarget)"
+                                                    class="absolute right-3 top-1/2 -translate-y-1/2 text-mist hover:text-ink transition">
+                                                    <i class="fa-solid fa-eye-slash text-xs"></i>
+                                                </button>
+                                            </div>
+                                            @error('password')
+                                                <p class="mt-1.5 text-xs flex items-center gap-1" style="color:#ef4444;">
+                                                    <i class="fa-solid fa-circle-exclamation text-[10px]"></i>
+                                                    {{ $message }}
+                                                </p>
+                                            @enderror
+                                        </div>
 
-                                    <button type="submit" wire:loading.attr="disabled" wire:loading.class="opacity-60"
-                                        class="w-full rounded-lg bg-amber py-2.5 text-sm font-semibold text-on-amber hover:brightness-95 transition disabled:cursor-wait">
-                                        <span wire:loading.remove>Sign in</span>
-                                        <span wire:loading>Signing in…</span>
-                                    </button>
+                                        <label class="flex items-center gap-2 text-xs text-mist select-none">
+                                            <input type="checkbox" wire:model="remember" class="h-3.5 w-3.5 rounded border-line bg-surface accent-amber" />
+                                            Keep me signed in on this device
+                                        </label>
 
-                                    <div class="flex items-center gap-3 py-1">
-                                        <div class="h-px flex-1 bg-line"></div>
-                                        <span class="text-xs text-mist font-mono">or continue with</span>
-                                        <div class="h-px flex-1 bg-line"></div>
-                                    </div>
+                                        <button type="submit" wire:loading.attr="disabled" wire:loading.class="opacity-60"
+                                            class="w-full rounded-lg bg-amber py-2.5 text-sm font-semibold text-on-amber hover:brightness-95 transition disabled:cursor-wait">
+                                            <span wire:loading.remove>Sign in</span>
+                                            <span wire:loading>Signing in…</span>
+                                        </button>
 
-                                    <button type="button"
-                                        class="w-full flex items-center justify-center gap-2.5 rounded-lg border border-line bg-surface py-2.5 text-sm font-medium text-ink hover:border-mist transition">
-                                        <svg width="16" height="16" viewBox="0 0 48 48">
-                                            <path fill="#EA4335"
-                                                d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.9 2.4 30.4 0 24 0 14.6 0 6.4 5.4 2.5 13.2l7.9 6.1C12.3 13.1 17.6 9.5 24 9.5z" />
-                                            <path fill="#4285F4"
-                                                d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.5 3-2.2 5.5-4.7 7.2l7.4 5.7c4.3-4 6.8-9.9 6.8-17.4z" />
-                                            <path fill="#FBBC05"
-                                                d="M10.4 19.3A14.5 14.5 0 0 0 9.5 24c0 1.6.3 3.2.9 4.7l-7.9 6.1A24 24 0 0 1 0 24c0-3.9.9-7.5 2.5-10.7l7.9 6z" />
-                                            <path fill="#34A853"
-                                                d="M24 48c6.4 0 11.9-2.1 15.9-5.8l-7.4-5.7c-2.1 1.4-4.8 2.3-8.5 2.3-6.4 0-11.7-3.6-13.6-8.8l-7.9 6.1C6.4 42.6 14.6 48 24 48z" />
-                                        </svg>
-                                        Continue with Google
-                                    </button>
+                                        @if ($googleSsoEnabled || $passkeyEnabled)
+                                            <div class="flex items-center gap-3 py-1">
+                                                <div class="h-px flex-1 bg-line"></div>
+                                                <span class="text-xs text-mist font-mono">or continue with</span>
+                                                <div class="h-px flex-1 bg-line"></div>
+                                            </div>
+                                        @endif
 
-                                    <button type="button" onclick="window.loginWithPasskey()" id="btn-passkey-login"
-                                        data-redirect="{{ config('passkeys.redirect') }}"
-                                        class="w-full flex items-center justify-center gap-2.5 rounded-lg border border-line bg-surface py-2.5 text-sm font-medium text-ink hover:border-mist transition">
-                                        <i class="fa-solid fa-key text-xs"></i>
-                                        Sign in with passkey
-                                    </button>
-                                    <p id="passkey-login-error" class="hidden mt-1.5 text-xs flex items-center gap-1 text-center" style="color:#ef4444;"></p>
-                                </form>
+                                        @if ($googleSsoEnabled)
+                                            <a href="{{ route('auth.google.redirect') }}"
+                                                class="w-full flex items-center justify-center gap-2.5 rounded-lg border border-line bg-surface py-2.5 text-sm font-medium text-ink hover:border-mist transition">
+                                                <svg width="16" height="16" viewBox="0 0 48 48">
+                                                    <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.9 2.4 30.4 0 24 0 14.6 0 6.4 5.4 2.5 13.2l7.9 6.1C12.3 13.1 17.6 9.5 24 9.5z" />
+                                                    <path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.5 3-2.2 5.5-4.7 7.2l7.4 5.7c4.3-4 6.8-9.9 6.8-17.4z" />
+                                                    <path fill="#FBBC05" d="M10.4 19.3A14.5 14.5 0 0 0 9.5 24c0 1.6.3 3.2.9 4.7l-7.9 6.1A24 24 0 0 1 0 24c0-3.9.9-7.5 2.5-10.7l7.9 6z" />
+                                                    <path fill="#34A853" d="M24 48c6.4 0 11.9-2.1 15.9-5.8l-7.4-5.7c-2.1 1.4-4.8 2.3-8.5 2.3-6.4 0-11.7-3.6-13.6-8.8l-7.9 6.1C6.4 42.6 14.6 48 24 48z" />
+                                                </svg>
+                                                Continue with Google
+                                            </a>
+                                        @endif
+
+                                        @if ($passkeyEnabled)
+                                            <button type="button" onclick="window.loginWithPasskey()" id="btn-passkey-login" data-redirect="{{ config('passkeys.redirect') }}"
+                                                class="w-full flex items-center justify-center gap-2.5 rounded-lg border border-line bg-surface py-2.5 text-sm font-medium text-ink hover:border-mist transition">
+                                                <i class="fa-solid fa-key text-xs"></i>
+                                                Sign in with passkey
+                                            </button>
+                                            <p id="passkey-login-error" class="hidden mt-1.5 text-xs flex items-center gap-1 text-center" style="color:#ef4444;"></p>
+                                        @endif
+                                    </form>
+                                @elseif ($defaultMethod === 'magic_link')
+                                    <form wire:submit="sendMagicLink" class="mt-6 space-y-5">
+                                        @include('components.messages')
+
+                                        <div>
+                                            <label for="magic-email" class="block text-xs font-medium text-mist mb-1.5">Work email</label>
+                                            <input id="magic-email" type="email" wire:model="magicEmail" placeholder="you@company.com"
+                                                class="w-full rounded-lg border border-line bg-surface px-3.5 py-2.5 text-sm text-ink placeholder-mist/60 outline-none focus:border-amber focus:ring-1 focus:ring-amber transition" />
+                                            @error('magicEmail')
+                                                <p class="mt-1.5 text-xs flex items-center gap-1" style="color:#ef4444;">
+                                                    <i class="fa-solid fa-circle-exclamation text-[10px]"></i>
+                                                    {{ $message }}
+                                                </p>
+                                            @enderror
+                                        </div>
+
+                                        <label class="flex items-center gap-2 text-xs text-mist select-none">
+                                            <input type="checkbox" wire:model="remember" class="h-3.5 w-3.5 rounded border-line bg-surface accent-amber" />
+                                            Keep me signed in on this device
+                                        </label>
+
+                                        <button type="submit" wire:loading.attr="disabled" wire:loading.class="opacity-60"
+                                            class="w-full rounded-lg bg-amber py-2.5 text-sm font-semibold text-on-amber hover:brightness-95 transition disabled:cursor-wait">
+                                            <span wire:loading.remove>Send magic link</span>
+                                            <span wire:loading>Sending…</span>
+                                        </button>
+
+                                        @if ($magicSent)
+                                            <p class="text-xs text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">Check your email for the magic link. It expires in 15 minutes.</p>
+                                        @endif
+
+                                        @if ($googleSsoEnabled || $passkeyEnabled)
+                                            <div class="flex items-center gap-3 py-1">
+                                                <div class="h-px flex-1 bg-line"></div>
+                                                <span class="text-xs text-mist font-mono">or continue with</span>
+                                                <div class="h-px flex-1 bg-line"></div>
+                                            </div>
+                                        @endif
+
+                                        @if ($googleSsoEnabled)
+                                            <a href="{{ route('auth.google.redirect') }}"
+                                                class="w-full flex items-center justify-center gap-2.5 rounded-lg border border-line bg-surface py-2.5 text-sm font-medium text-ink hover:border-mist transition">
+                                                <svg width="16" height="16" viewBox="0 0 48 48">
+                                                    <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.9 2.4 30.4 0 24 0 14.6 0 6.4 5.4 2.5 13.2l7.9 6.1C12.3 13.1 17.6 9.5 24 9.5z" />
+                                                    <path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.5 3-2.2 5.5-4.7 7.2l7.4 5.7c4.3-4 6.8-9.9 6.8-17.4z" />
+                                                    <path fill="#FBBC05" d="M10.4 19.3A14.5 14.5 0 0 0 9.5 24c0 1.6.3 3.2.9 4.7l-7.9 6.1A24 24 0 0 1 0 24c0-3.9.9-7.5 2.5-10.7l7.9 6z" />
+                                                    <path fill="#34A853" d="M24 48c6.4 0 11.9-2.1 15.9-5.8l-7.4-5.7c-2.1 1.4-4.8 2.3-8.5 2.3-6.4 0-11.7-3.6-13.6-8.8l-7.9 6.1C6.4 42.6 14.6 48 24 48z" />
+                                                </svg>
+                                                Continue with Google
+                                            </a>
+                                        @endif
+
+                                        @if ($passkeyEnabled)
+                                            <button type="button" onclick="window.loginWithPasskey()" id="btn-passkey-login" data-redirect="{{ config('passkeys.redirect') }}"
+                                                class="w-full flex items-center justify-center gap-2.5 rounded-lg border border-line bg-surface py-2.5 text-sm font-medium text-ink hover:border-mist transition">
+                                                <i class="fa-solid fa-key text-xs"></i>
+                                                Sign in with passkey
+                                            </button>
+                                            <p id="passkey-login-error" class="hidden mt-1.5 text-xs flex items-center gap-1 text-center" style="color:#ef4444;"></p>
+                                        @endif
+                                    </form>
+                                @elseif ($defaultMethod === 'otp')
+                                    <form wire:submit="{{ $otpSent ? 'verifyOtp' : 'sendOtp' }}" class="mt-6 space-y-5">
+                                        @include('components.messages')
+
+                                        <div>
+                                            <label for="otp-email" class="block text-xs font-medium text-mist mb-1.5">Work email</label>
+                                            <input id="otp-email" type="email" wire:model="otpEmail" placeholder="you@company.com" @if($otpSent) disabled @endif
+                                                class="w-full rounded-lg border border-line bg-surface px-3.5 py-2.5 text-sm text-ink placeholder-mist/60 outline-none focus:border-amber focus:ring-1 focus:ring-amber transition disabled:opacity-60" />
+                                            @error('otpEmail')
+                                                <p class="mt-1.5 text-xs flex items-center gap-1" style="color:#ef4444;">
+                                                    <i class="fa-solid fa-circle-exclamation text-[10px]"></i>
+                                                    {{ $message }}
+                                                </p>
+                                            @enderror
+                                        </div>
+
+                                        @if ($otpSent)
+                                            <div>
+                                                <label for="otp-code" class="block text-xs font-medium text-mist mb-1.5">6-digit code</label>
+                                                <input id="otp-code" type="text" wire:model.live="otpCode" placeholder="000000" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" maxlength="6"
+                                                    oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,6)"
+                                                    class="w-full rounded-lg border border-line bg-surface px-3.5 py-2.5 text-sm text-ink placeholder-mist/60 outline-none focus:border-amber focus:ring-1 focus:ring-amber transition tracking-[0.3em] text-center font-mono" />
+                                                <p class="mt-1 text-[10px] text-mist text-center">Only numbers • 6 digits</p>
+                                                @error('otpCode')
+                                                    <p class="mt-1.5 text-xs flex items-center gap-1" style="color:#ef4444;">
+                                                        <i class="fa-solid fa-circle-exclamation text-[10px]"></i>
+                                                        {{ $message }}
+                                                    </p>
+                                                @enderror
+                                                <button type="button" wire:click="sendOtp" class="mt-2 text-xs text-amber-deep hover:text-ink transition">Resend code</button>
+                                            </div>
+                                        @endif
+
+                                        <label class="flex items-center gap-2 text-xs text-mist select-none">
+                                            <input type="checkbox" wire:model="remember" class="h-3.5 w-3.5 rounded border-line bg-surface accent-amber" />
+                                            Keep me signed in on this device
+                                        </label>
+
+                                        <button type="submit" wire:loading.attr="disabled" wire:loading.class="opacity-60"
+                                            class="w-full rounded-lg bg-amber py-2.5 text-sm font-semibold text-on-amber hover:brightness-95 transition disabled:cursor-wait">
+                                            <span wire:loading.remove>{{ $otpSent ? 'Verify code' : 'Send code' }}</span>
+                                            <span wire:loading>{{ $otpSent ? 'Verifying…' : 'Sending…' }}</span>
+                                        </button>
+
+                                        @if ($googleSsoEnabled || $passkeyEnabled)
+                                            <div class="flex items-center gap-3 py-1">
+                                                <div class="h-px flex-1 bg-line"></div>
+                                                <span class="text-xs text-mist font-mono">or continue with</span>
+                                                <div class="h-px flex-1 bg-line"></div>
+                                            </div>
+                                        @endif
+
+                                        @if ($googleSsoEnabled)
+                                            <a href="{{ route('auth.google.redirect') }}"
+                                                class="w-full flex items-center justify-center gap-2.5 rounded-lg border border-line bg-surface py-2.5 text-sm font-medium text-ink hover:border-mist transition">
+                                                <svg width="16" height="16" viewBox="0 0 48 48">
+                                                    <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.9 2.4 30.4 0 24 0 14.6 0 6.4 5.4 2.5 13.2l7.9 6.1C12.3 13.1 17.6 9.5 24 9.5z" />
+                                                    <path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.5 3-2.2 5.5-4.7 7.2l7.4 5.7c4.3-4 6.8-9.9 6.8-17.4z" />
+                                                    <path fill="#FBBC05" d="M10.4 19.3A14.5 14.5 0 0 0 9.5 24c0 1.6.3 3.2.9 4.7l-7.9 6.1A24 24 0 0 1 0 24c0-3.9.9-7.5 2.5-10.7l7.9 6z" />
+                                                    <path fill="#34A853" d="M24 48c6.4 0 11.9-2.1 15.9-5.8l-7.4-5.7c-2.1 1.4-4.8 2.3-8.5 2.3-6.4 0-11.7-3.6-13.6-8.8l-7.9 6.1C6.4 42.6 14.6 48 24 48z" />
+                                                </svg>
+                                                Continue with Google
+                                            </a>
+                                        @endif
+
+                                        @if ($passkeyEnabled)
+                                            <button type="button" onclick="window.loginWithPasskey()" id="btn-passkey-login" data-redirect="{{ config('passkeys.redirect') }}"
+                                                class="w-full flex items-center justify-center gap-2.5 rounded-lg border border-line bg-surface py-2.5 text-sm font-medium text-ink hover:border-mist transition">
+                                                <i class="fa-solid fa-key text-xs"></i>
+                                                Sign in with passkey
+                                            </button>
+                                            <p id="passkey-login-error" class="hidden mt-1.5 text-xs flex items-center gap-1 text-center" style="color:#ef4444;"></p>
+                                        @endif
+                                    </form>
+                                @endif
                             </div>
                         </div>
                     @endif

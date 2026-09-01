@@ -1,89 +1,140 @@
 <?php
 
+use App\Models\AuthenticationSetting;
 use Jantinnerezo\LivewireAlert\Facades\LivewireAlert;
 use Livewire\Component;
 
 new class extends Component {
-    public $btnPreview;
-    public $formPassword = true;
+    public string $btnPreview = 'Sign In';
+    public bool $formPassword = true;
 
+    // typed single-row settings
+    public string $defaultMethod = 'email';
+    public bool $passkeyEnabled = false;
+    public bool $googleSsoEnabled = true;
+    public string $googleClientId = '';
+    public string $googleClientSecret = '';
+
+    // keep legacy property for backward compat in tests if needed
     public $login_defaults = [];
     public $login_sso = true;
 
-    public function mount()
+    public function mount(): void
     {
-        // set default login method to email
-        $this->login_defaults = ['email'];
-        $this->btnPreview = 'Sign In';
+        $settings = AuthenticationSetting::current();
+
+        $this->defaultMethod = $settings->default_method;
+        $this->passkeyEnabled = (bool) $settings->passkey_enabled;
+        $this->googleSsoEnabled = (bool) $settings->google_sso_enabled;
+        $this->googleClientId = $settings->google_client_id ?? '';
+        // do not prefill secret for security; keep empty unless user wants to change
+        $this->googleClientSecret = '';
+
+        // legacy sync
+        $this->login_defaults = [$this->defaultMethod];
+        $this->login_sso = $this->googleSsoEnabled;
+
+        $this->syncPreview();
     }
 
-    public function updatedLoginDefaults($value)
+    private function syncPreview(): void
     {
-        if (count($value) > 1) {
-            $this->login_defaults = [end($value)];
-
-            $message = 'Login method successfully changed to Default.';
-            if ($value[1] == 'magiclink') {
-                $message = 'Login method successfully changed to Magic Link.';
-                $this->btnPreview = 'Sign in via a one-time link sent to your email';
-                $this->formPassword = false;
-            }
-
-            if ($value[1] == 'otp') {
-                $message = 'Login method successfully changed to One-time password (email).';
-                $this->btnPreview = 'Sign in with a 6-digit code sent to your email';
-                $this->formPassword = false;
-            }
-
-            if ($value[1] == 'email') {
-                $this->btnPreview = 'Sign In';
-                $this->formPassword = true;
-            }
-
-            LivewireAlert::title($message)
-                ->success()
-                ->toast()
-                ->position('center')
-                ->timer(2500)
-                ->timerProgressBar()
-                ->withOptions([
-                    'width' => '30%',
-                ])
-                ->show();
-            return;
+        if ($this->defaultMethod === 'magic_link') {
+            $this->btnPreview = 'Sign in via a one-time link sent to your email';
+            $this->formPassword = false;
+        } elseif ($this->defaultMethod === 'otp') {
+            $this->btnPreview = 'Sign in with a 6-digit code sent to your email';
+            $this->formPassword = false;
         } else {
-            $this->login_defaults = ['email'];
             $this->btnPreview = 'Sign In';
             $this->formPassword = true;
-            LivewireAlert::title('At least one login method must be selected')
-                ->success()
-                ->toast()
-                ->position('center')
-                ->timer(2500)
-                ->timerProgressBar()
-                ->withOptions([
-                    'width' => '30%',
-                ])
-                ->show();
-            return;
         }
     }
 
-    public function updatedLoginSso()
+    private function persist(array $attributes, string $message): void
     {
-        LivewireAlert::title('SSO successfully ' . ($this->login_sso ? 'enabled' : 'disabled'))
+        $settings = AuthenticationSetting::current();
+        $settings->update($attributes);
+        $this->syncPreview();
+
+        LivewireAlert::title($message)
             ->success()
             ->toast()
             ->position('center')
             ->timer(2500)
             ->timerProgressBar()
-            ->withOptions([
-                'width' => '30%',
-            ])
+            ->withOptions(['width' => '30%'])
             ->show();
     }
 
-    //
+    public function updatedDefaultMethod($value): void
+    {
+        $value = in_array($value, ['email', 'magic_link', 'otp'], true) ? $value : 'email';
+        $this->defaultMethod = $value;
+        $this->login_defaults = [$value];
+
+        $map = [
+            'email' => 'Login method successfully changed to Email & Password.',
+            'magic_link' => 'Login method successfully changed to Magic Link.',
+            'otp' => 'Login method successfully changed to One-time password (email).',
+        ];
+
+        $this->persist(['default_method' => $value], $map[$value] ?? $map['email']);
+    }
+
+    // legacy: when old checkbox array is updated (e.g. in tests), sync to single
+    public function updatedLoginDefaults($value): void
+    {
+        $arr = is_array($value) ? $value : [$value];
+        $candidate = end($arr) ?: 'email';
+        // normalize magiclink -> magic_link
+        if ($candidate === 'magiclink') {
+            $candidate = 'magic_link';
+        }
+        $this->updatedDefaultMethod($candidate);
+    }
+
+    public function updatedPasskeyEnabled($value): void
+    {
+        $this->passkeyEnabled = (bool) $value;
+        $this->persist(['passkey_enabled' => $this->passkeyEnabled], 'Passkey successfully ' . ($this->passkeyEnabled ? 'enabled' : 'disabled'));
+    }
+
+    public function updatedGoogleSsoEnabled($value): void
+    {
+        $this->googleSsoEnabled = (bool) $value;
+        $this->login_sso = $this->googleSsoEnabled;
+        $this->persist(['google_sso_enabled' => $this->googleSsoEnabled], 'SSO successfully ' . ($this->googleSsoEnabled ? 'enabled' : 'disabled'));
+    }
+
+    public function updatedLoginSso($value): void
+    {
+        $this->updatedGoogleSsoEnabled($value);
+    }
+
+    public function save(): void
+    {
+        $this->validate([
+            'defaultMethod' => ['required', 'in:email,magic_link,otp'],
+            'googleClientId' => ['nullable', 'string', 'max:255'],
+            'googleClientSecret' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $attributes = [
+            'default_method' => $this->defaultMethod,
+            'passkey_enabled' => $this->passkeyEnabled,
+            'google_sso_enabled' => $this->googleSsoEnabled,
+            'google_client_id' => $this->googleClientId ?: null,
+        ];
+
+        // only overwrite secret if user typed a new one
+        if ($this->googleClientSecret !== '') {
+            $attributes['google_client_secret'] = $this->googleClientSecret;
+        }
+
+        $this->persist($attributes, 'Authentication settings saved.');
+        $this->googleClientSecret = '';
+    }
 };
 ?>
 
@@ -124,8 +175,8 @@ new class extends Component {
                                 </div>
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                                <input type="checkbox" id="toggle-default" class="peer sr-only"
-                                    wire:model.live="login_defaults" value="email">
+                                <input type="radio" name="defaultMethod" id="toggle-default" class="peer sr-only"
+                                    wire:model.live="defaultMethod" value="email">
                                 <div
                                     class="w-9 h-5 rounded-full bg-surface-2 border border-line peer-checked:bg-amber transition-colors">
                                 </div>
@@ -149,8 +200,8 @@ new class extends Component {
                                 </div>
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                                <input type="checkbox" id="toggle-magiclink" class="peer sr-only" value="magiclink"
-                                    wire:model.live="login_defaults">
+                                <input type="radio" name="defaultMethod" id="toggle-magiclink" class="peer sr-only"
+                                    value="magic_link" wire:model.live="defaultMethod">
                                 <div
                                     class="w-9 h-5 rounded-full bg-surface-2 border border-line peer-checked:bg-amber transition-colors">
                                 </div>
@@ -174,8 +225,8 @@ new class extends Component {
                                 </div>
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                                <input type="checkbox" id="toggle-otp" class="peer sr-only" value="otp"
-                                    wire:model.live="login_defaults">
+                                <input type="radio" name="defaultMethod" id="toggle-otp" class="peer sr-only"
+                                    value="otp" wire:model.live="defaultMethod">
                                 <div
                                     class="w-9 h-5 rounded-full bg-surface-2 border border-line peer-checked:bg-amber transition-colors">
                                 </div>
@@ -198,7 +249,7 @@ new class extends Component {
                             <div class="flex items-start gap-3">
                                 <span
                                     class="flex h-9 w-9 items-center justify-center rounded-lg bg-surface-2 text-mist shrink-0"><i
-                                        class="fa-solid fa-shield-halved"></i></span>
+                                        class="fa-solid fa-key"></i></span>
                                 <div>
                                     <p class="text-sm font-medium text-ink">Passkeys</p>
                                     <p class="text-xs text-mist mt-0.5">
@@ -207,8 +258,8 @@ new class extends Component {
                                 </div>
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                                <input type="checkbox" id="passkey" checked class="peer sr-only" value="passkey"
-                                    wire:model.live="passkey">
+                                <input type="checkbox" id="passkey" class="peer sr-only" value="1"
+                                    wire:model.live="passkeyEnabled">
                                 <div
                                     class="w-9 h-5 rounded-full bg-surface-2 border border-line peer-checked:bg-amber transition-colors">
                                 </div>
@@ -242,8 +293,8 @@ new class extends Component {
                                 </div>
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                                <input type="checkbox" id="toggle-sso" class="peer sr-only" value="sso"
-                                    wire:model.live="login_sso">
+                                <input type="checkbox" id="toggle-sso" class="peer sr-only" value="1"
+                                    wire:model.live="googleSsoEnabled">
                                 <div
                                     class="w-9 h-5 rounded-full bg-surface-2 border border-line peer-checked:bg-amber transition-colors">
                                 </div>
@@ -257,22 +308,35 @@ new class extends Component {
                             <div>
                                 <label for="google-client-id" class="block text-xs font-medium text-mist mb-1.5">Google
                                     Client ID</label>
-                                <input id="google-client-id" type="text"
+                                <input id="google-client-id" type="text" wire:model="googleClientId"
                                     placeholder="xxxxxx.apps.googleusercontent.com"
                                     class="w-full rounded-lg border border-line bg-surface px-3.5 py-2.5 text-sm text-ink placeholder-mist/60 outline-none focus:border-amber focus:ring-1 focus:ring-amber transition font-mono" />
+                                @error('googleClientId')
+                                    <p class="mt-1.5 text-xs flex items-center gap-1" style="color:#ef4444;">
+                                        <i class="fa-solid fa-circle-exclamation text-[10px]"></i>
+                                        <span>{{ $message }}</span>
+                                    </p>
+                                @enderror
                             </div>
                             <div>
                                 <label for="google-client-secret"
                                     class="block text-xs font-medium text-mist mb-1.5">Google
                                     Client Secret</label>
-                                <input id="google-client-secret" type="password" placeholder="••••••••••••••••"
+                                <input id="google-client-secret" type="password" wire:model="googleClientSecret"
+                                    placeholder="••••••••••••••••"
                                     class="w-full rounded-lg border border-line bg-surface px-3.5 py-2.5 text-sm text-ink placeholder-mist/60 outline-none focus:border-amber focus:ring-1 focus:ring-amber transition font-mono" />
+                                @error('googleClientSecret')
+                                    <p class="mt-1.5 text-xs flex items-center gap-1" style="color:#ef4444;">
+                                        <i class="fa-solid fa-circle-exclamation text-[10px]"></i>
+                                        <span>{{ $message }}</span>
+                                    </p>
+                                @enderror
                             </div>
                         </div>
                     </div>
 
-                    <button type="button"
-                        class="rounded-lg bg-ink px-4 py-2.5 text-sm font-semibold hover:brightness-110 transition"
+                    <button type="button" wire:click="save" wire:loading.attr="disabled"
+                        class="rounded-lg bg-ink px-4 py-2.5 text-sm font-semibold hover:brightness-110 transition disabled:opacity-50"
                         style="color: var(--color-card);">
                         Save
                     </button>
@@ -300,12 +364,14 @@ new class extends Component {
                             </div>
 
                             <div class="space-y-3">
-                                <div wire:show="login_sso">
+                                @if ($googleSsoEnabled || $passkeyEnabled)
                                     <div class="flex items-center gap-3 my-4">
                                         <div class="h-px flex-1 bg-line"></div>
                                         <span class="text-[10px] text-mist font-mono">or</span>
                                         <div class="h-px flex-1 bg-line"></div>
                                     </div>
+                                @endif
+                                <div wire:show="googleSsoEnabled">
                                     <div
                                         class="w-full flex items-center justify-center gap-2 rounded-lg border border-line py-2 text-xs font-medium text-ink">
                                         <svg width="12" height="12" viewBox="0 0 48 48">
@@ -322,7 +388,7 @@ new class extends Component {
                                     </div>
                                 </div>
 
-                                <button type="button" id="btn-passkey-login"
+                                <button type="button" id="btn-passkey-login" wire:show="passkeyEnabled"
                                     class="w-full flex items-center justify-center gap-2 rounded-lg border border-line py-2 text-xs font-medium text-ink">
                                     <i class="fa-solid fa-key text-xs"></i>
                                     Sign in with passkey
