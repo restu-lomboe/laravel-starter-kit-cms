@@ -306,7 +306,8 @@ new class extends Component {
                         <!-- SSO config fields -->
                         <div id="sso-config" class="mt-4 pt-4 border-t border-line space-y-3">
                             <div>
-                                <label for="google-client-id" class="block text-xs font-medium text-mist mb-1.5">Google
+                                <label for="google-client-id"
+                                    class="block text-xs font-medium text-mist mb-1.5">Google
                                     Client ID</label>
                                 <input id="google-client-id" type="text" wire:model="googleClientId"
                                     placeholder="xxxxxx.apps.googleusercontent.com"

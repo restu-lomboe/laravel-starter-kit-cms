@@ -1,12 +1,12 @@
 <?php
 
-namespace App\View\Components;
+namespace App\View\Components\Admin\Roles;
 
 use Closure;
 use Illuminate\Contracts\View\View;
 use Illuminate\View\Component;
 
-class admin.users.roles extends Component
+class Action extends Component
 {
     /**
      * Create a new component instance.
@@ -21,6 +21,6 @@ class admin.users.roles extends Component
      */
     public function render(): View|Closure|string
     {
-        return view('components.admin.users.roles');
+        return view('components.admin.roles.action');
     }
 }
